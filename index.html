@@ -1,0 +1,3534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeakyPDF: Check PDFs for Hidden Metadata, Comments &amp; Old Versions</title>
+  <meta name="description" content="Inspect PDFs locally in your browser for hidden metadata, edit history, old versions, unapplied redactions, comments, attachments, and JavaScript." />
+  <meta name="author" content="Shrijeet Singh" />
+  <link rel="canonical" href="https://shrijeetdev.github.io/leakypdf/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="LeakyPDF: Check PDFs for Hidden Metadata, Comments &amp; Old Versions" />
+  <meta property="og:description" content="Inspect PDFs locally in your browser for hidden metadata, edit history, old versions, unapplied redactions, comments, attachments, and JavaScript." />
+  <meta property="og:url" content="https://shrijeetdev.github.io/leakypdf/" />
+  <meta property="og:site_name" content="LeakyPDF" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="LeakyPDF: Check PDFs for Hidden Metadata, Comments &amp; Old Versions" />
+  <meta name="twitter:description" content="Inspect PDFs locally in your browser for hidden metadata, edit history, old versions, unapplied redactions, comments, attachments, and JavaScript." />
+
+  <!-- Inline SVG Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230D1117'/%3E%3Cpath d='M18 12h19l11 11v29a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V16a4 4 0 0 1 4-4z' fill='%23161B22' stroke='%233FB950' stroke-width='3'/%3E%3Cpath d='M37 12v11h11' fill='none' stroke='%233FB950' stroke-width='3'/%3E%3Crect x='20' y='30' width='22' height='5' rx='2' fill='%23F85149'/%3E%3Ccircle cx='44' cy='44' r='9' fill='%230D1117' stroke='%2315E0ED' stroke-width='3'/%3E%3Cpath d='M50 50l6 6' stroke='%2315E0ED' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "LeakyPDF",
+    "description": "Client-side PDF forensic analyzer that checks PDF documents locally for hidden metadata, incremental revision history, unapplied redaction annotations, comments, embedded files, form values, and JavaScript.",
+    "url": "https://shrijeetdev.github.io/leakypdf/",
+    "applicationCategory": "SecurityApplication",
+    "operatingSystem": "Any (Web Browser)",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "Shrijeet Singh",
+      "url": "https://shrijeetsingh.com"
+    }
+  }
+  </script>
+
+  <style>
+    :root {
+      --bg: #0D1117;
+      --surface: #161B22;
+      --surface-elevated: #1C2129;
+      --border: #30363D;
+      --text: #E6EDF3;
+      --muted: #8B949E;
+      --accent: #3FB950;
+      --accent-soft: rgba(63, 185, 80, 0.14);
+      --accent2: #15E0ED;
+      --accent2-soft: rgba(21, 224, 237, 0.12);
+      --danger: #F85149;
+      --danger-soft: rgba(248, 81, 73, 0.14);
+      --warn: #D29922;
+      --warn-soft: rgba(210, 153, 34, 0.15);
+      --radius: 12px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #F6F8FA;
+        --surface: #FFFFFF;
+        --surface-elevated: #F0F3F6;
+        --border: #D0D7DE;
+        --text: #1F2328;
+        --muted: #59636E;
+        --accent: #1A7F37;
+        --accent-soft: rgba(26, 127, 55, 0.1);
+        --accent2: #0969DA;
+        --accent2-soft: rgba(9, 105, 218, 0.1);
+        --danger: #CF222E;
+        --danger-soft: rgba(207, 34, 46, 0.1);
+        --warn: #9A6700;
+        --warn-soft: rgba(154, 103, 0, 0.11);
+      }
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    body {
+      margin: 0;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--accent2);
+      text-decoration: none;
+    }
+
+    a:hover, a:focus-visible {
+      text-decoration: underline;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent2);
+      outline-offset: 2px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Header */
+    header.site-header {
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 18px 0;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+    }
+
+    .brand-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .brand-name {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+
+    .privacy-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(63, 185, 80, 0.35);
+    }
+
+    .privacy-pill::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .brand-tagline {
+      margin: 2px 0 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 9px 15px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface-elevated);
+      color: var(--text);
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--accent2);
+      text-decoration: none;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #09110A;
+      border-color: var(--accent);
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.06);
+      border-color: var(--accent);
+    }
+
+    .btn-sm {
+      padding: 6px 11px;
+      font-size: 0.82rem;
+      border-radius: 8px;
+    }
+
+    .btn-danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: rgba(248, 81, 73, 0.4);
+    }
+
+    /* Main Layout */
+    main {
+      padding: 28px 0 56px;
+    }
+
+    /* Dropzone */
+    .drop-card {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 36px 24px;
+      text-align: center;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+      position: relative;
+    }
+
+    .drop-card.dragover {
+      border-color: var(--accent2);
+      background: var(--accent2-soft);
+    }
+
+    .drop-icon {
+      width: 44px;
+      height: 44px;
+      color: var(--accent2);
+      margin-bottom: 10px;
+    }
+
+    .drop-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin: 0 0 6px;
+    }
+
+    .drop-sub {
+      color: var(--muted);
+      font-size: 0.94rem;
+      max-width: 580px;
+      margin: 0 auto 20px;
+    }
+
+    .drop-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .drop-note {
+      margin-top: 14px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* Progress Bar */
+    .progress-wrap {
+      display: none;
+      margin-top: 20px;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: left;
+    }
+
+    .progress-wrap.active {
+      display: block;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-family: var(--font-mono);
+    }
+
+    .progress-track {
+      height: 8px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.15s ease;
+    }
+
+    /* Error Banner */
+    .alert-banner {
+      display: none;
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(248, 81, 73, 0.45);
+      background: var(--danger-soft);
+      color: var(--text);
+      font-size: 0.92rem;
+    }
+
+    .alert-banner.active {
+      display: block;
+    }
+
+    /* Report Section */
+    #report-section {
+      display: none;
+      margin-top: 28px;
+    }
+
+    #report-section.active {
+      display: block;
+    }
+
+    .report-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .file-identity {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .file-name {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    .file-stats {
+      font-size: 0.83rem;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    .export-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Risk Banner */
+    .risk-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      margin-bottom: 22px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 22px;
+      align-items: center;
+    }
+
+    @media (max-width: 680px) {
+      .risk-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .score-ring {
+      width: 112px;
+      height: 112px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 6px solid var(--border);
+      background: var(--surface-elevated);
+      text-align: center;
+      margin: 0 auto;
+    }
+
+    .score-ring.high {
+      border-color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .score-ring.medium {
+      border-color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .score-ring.low {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .score-num {
+      font-size: 1.75rem;
+      font-weight: 800;
+      line-height: 1.1;
+      font-family: var(--font-mono);
+    }
+
+    .score-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .risk-details h2 {
+      margin: 0 0 6px;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .risk-summary {
+      margin: 0 0 12px;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .remediation-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent2);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.88rem;
+    }
+
+    .remediation-box strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--accent2);
+    }
+
+    .remediation-box ul {
+      margin: 4px 0 0;
+      padding-left: 18px;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-family: var(--font-mono);
+    }
+
+    .badge-high {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+    }
+
+    .badge-warn {
+      background: var(--warn-soft);
+      color: var(--warn);
+      border: 1px solid rgba(210, 153, 34, 0.4);
+    }
+
+    .badge-ok {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(63, 185, 80, 0.4);
+    }
+
+    .badge-info {
+      background: var(--accent2-soft);
+      color: var(--accent2);
+      border: 1px solid rgba(21, 224, 237, 0.4);
+    }
+
+    /* Findings Grid */
+    .findings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    @media (max-width: 860px) {
+      .findings-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .finding-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .finding-card.full-span {
+      grid-column: 1 / -1;
+    }
+
+    .finding-card.sev-high {
+      border-color: rgba(248, 81, 73, 0.55);
+    }
+
+    .finding-card.sev-warn {
+      border-color: rgba(210, 153, 34, 0.5);
+    }
+
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 1.03rem;
+      font-weight: 700;
+    }
+
+    .card-explain {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    /* Tables & KV lists */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 11px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    th {
+      background: var(--surface-elevated);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      word-break: break-word;
+    }
+
+    .empty-state {
+      font-size: 0.86rem;
+      color: var(--muted);
+      background: var(--surface-elevated);
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .rev-list, .item-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rev-item, .sub-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .sub-item-col {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 12px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .code-snippet {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 140px;
+      overflow-y: auto;
+      margin: 4px 0 0;
+    }
+
+    .stat-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .stat-chip {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 11px;
+      font-size: 0.83rem;
+    }
+
+    .stat-chip span {
+      color: var(--muted);
+      margin-right: 5px;
+    }
+
+    /* Editorial Sections Below Tool */
+    .info-section {
+      margin-top: 48px;
+    }
+
+    .section-heading {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin: 0 0 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .section-lead {
+      color: var(--muted);
+      margin: 0 0 20px;
+      font-size: 0.96rem;
+    }
+
+    .audience-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    @media (max-width: 960px) {
+      .audience-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 540px) {
+      .audience-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+
+    .info-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.02rem;
+      color: var(--text);
+    }
+
+    .info-card p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    @media (max-width: 780px) {
+      .steps-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent2-soft);
+      color: var(--accent2);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+    }
+
+    /* FAQ */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    details.faq-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+    }
+
+    details.faq-item summary {
+      font-weight: 600;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    details.faq-item summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.faq-item summary::after {
+      content: "+";
+      font-family: var(--font-mono);
+      font-size: 1.2rem;
+      color: var(--accent2);
+    }
+
+    details.faq-item[open] summary::after {
+      content: "−";
+    }
+
+    details.faq-item p {
+      margin: 12px 0 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* Footer */
+    footer.site-footer {
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      padding: 26px 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="14" fill="#1C2129" stroke="#30363D" stroke-width="2"/>
+          <path d="M18 12h19l11 11v29a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V16a4 4 0 0 1 4-4z" fill="#0D1117" stroke="#3FB950" stroke-width="3"/>
+          <path d="M37 12v11h11" fill="none" stroke="#3FB950" stroke-width="3"/>
+          <rect x="20" y="30" width="22" height="5" rx="2" fill="#F85149"/>
+          <circle cx="44" cy="44" r="9" fill="#0D1117" stroke="#15E0ED" stroke-width="3"/>
+          <path d="M50 50l6 6" stroke="#15E0ED" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <div>
+          <div class="brand-title-row">
+            <h1 class="brand-name">LeakyPDF</h1>
+            <span class="privacy-pill">Runs 100% in your browser</span>
+          </div>
+          <p class="brand-tagline">Check a PDF for hidden data before you send it</p>
+        </div>
+      </div>
+
+      <a class="btn" href="https://github.com/shrijeetdev/leakypdf" target="_blank" rel="noopener noreferrer" aria-label="Star LeakyPDF on GitHub">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/>
+        </svg>
+        Star on GitHub
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Drop Zone & Controls -->
+    <section aria-label="PDF Forensic Scanner">
+      <div id="dropzone" class="drop-card" tabindex="0" role="button" aria-label="Drop a PDF file here or press Enter to choose a file">
+        <input id="file-input" class="sr-only" type="file" accept=".pdf,application/pdf" />
+        <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <path d="M12 18v-6"/>
+          <polyline points="9 15 12 12 15 15"/>
+        </svg>
+        <h2 class="drop-title">Drop a PDF file here to audit it locally</h2>
+        <p class="drop-sub">
+          Inspects raw PDF objects, compressed object streams, incremental revision snapshots, XMP history, annotations, unapplied redactions, embedded attachments, and JavaScript. Your file never leaves your device.
+        </p>
+        <div class="drop-actions">
+          <button id="choose-btn" type="button" class="btn btn-primary">Select PDF File</button>
+          <button id="sample-btn" type="button" class="btn">Try a sample</button>
+        </div>
+        <p class="drop-note">Zero network requests · Offline capable · Parses raw PDF bytes directly in JavaScript</p>
+
+        <div id="progress-wrap" class="progress-wrap" role="status" aria-live="polite">
+          <div class="progress-meta">
+            <span id="progress-stage">Reading bytes…</span>
+            <span id="progress-pct">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="progress-bar" class="progress-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="error-banner" class="alert-banner" role="alert"></div>
+    </section>
+
+    <!-- Analysis Report -->
+    <section id="report-section" aria-label="PDF Forensic Report">
+      <div class="report-topbar">
+        <div class="file-identity">
+          <span id="rep-filename" class="file-name">document.pdf</span>
+          <span id="rep-filestats" class="file-stats">0 KB · PDF 1.7 · 0 objects</span>
+        </div>
+        <div class="export-group">
+          <button id="export-md-btn" type="button" class="btn btn-sm">Export Markdown</button>
+          <button id="export-json-btn" type="button" class="btn btn-sm">Export JSON</button>
+          <button id="reset-btn" type="button" class="btn btn-sm">Scan Another PDF</button>
+        </div>
+      </div>
+
+      <!-- Overall Risk Score & Guidance -->
+      <div class="risk-panel">
+        <div id="score-ring" class="score-ring low">
+          <span id="score-num" class="score-num">0</span>
+          <span id="score-tier" class="score-label">LOW RISK</span>
+        </div>
+        <div class="risk-details">
+          <h2>
+            <span id="risk-headline">No obvious hidden leaks detected</span>
+            <span id="risk-badge" class="badge badge-ok">PASS</span>
+          </h2>
+          <p id="risk-summary" class="risk-summary"></p>
+          <div class="remediation-box">
+            <strong>Recommended Next Steps</strong>
+            <ul id="remediation-list"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Cards -->
+      <div class="findings-grid">
+        <!-- 4. Unapplied Redactions -->
+        <article id="card-redactions" class="finding-card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Redaction Annotations</h3>
+              <p class="card-explain">Checks for <code>/Redact</code> annotations that were drawn over text but never flattened/applied.</p>
+            </div>
+            <span id="badge-redactions" class="badge badge-ok">NONE</span>
+          </div>
+          <div id="body-redactions"></div>
+        </article>
+
+        <!-- 2. Incremental Updates & Revisions -->
+        <article id="card-revisions" class="finding-card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Incremental Updates &amp; Saved Revisions</h3>
+              <p class="card-explain">Counts <code>%%EOF</code> markers and <code>xref</code> tables. Multiple revisions mean earlier drafts remain appended inside the file.</p>
+            </div>
+            <span id="badge-revisions" class="badge badge-ok">1 REVISION</span>
+          </div>
+          <div id="body-revisions"></div>
+        </article>
+
+        <!-- 1A. Document Info Dictionary -->
+        <article id="card-docinfo" class="finding-card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Document Info Dictionary</h3>
+              <p class="card-explain">Classic trailer <code>/Info</code> metadata revealing author names, workstation software, and timestamps.</p>
+            </div>
+            <span id="badge-docinfo" class="badge badge-info">0 FIELDS</span>
+          </div>
+          <div id="body-docinfo"></div>
+        </article>
+
+        <!-- 1B. XMP Metadata Stream -->
+        <article id="card-xmp" class="finding-card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">XMP Metadata &amp; Edit History</h3>
+              <p class="card-explain">Embedded XML metadata packet (<code>/Metadata</code>) including CreatorTool, DocumentID, InstanceID, and revision trail.</p>
+            </div>
+            <span id="badge-xmp" class="badge badge-info">NONE</span>
+          </div>
+          <div id="body-xmp"></div>
+        </article>
+
+        <!-- 3. Comments & Annotations -->
+        <article id="card-annots" class="finding-card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Comments, Markups &amp; Links</h3>
+              <p class="card-explain">Inspects <code>/Annot</code> objects (Text notes, FreeText, Highlight, Ink, Popup, and Link URIs) along with reviewer names.</p>
+            </div>
+            <span id="badge-annots" class="badge badge-ok">0 FOUND</span>
+          </div>
+          <div id="body-annots"></div>
+        </article>
+
+        <!-- 5. Embedded Files / Attachments -->
+        <article id="card-attachments" class="finding-card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Embedded Files &amp; Attachments</h3>
+              <p class="card-explain">Detects <code>/EmbeddedFiles</code> name trees and <code>/FileAttachment</code> annotations hidden inside the PDF container.</p>
+            </div>
+            <span id="badge-attachments" class="badge badge-ok">0 FILES</span>
+          </div>
+          <div id="body-attachments"></div>
+        </article>
+
+        <!-- 6. JavaScript & Active Actions -->
+        <article id="card-actions" class="finding-card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">JavaScript &amp; Auto-Trigger Actions</h3>
+              <p class="card-explain">Flags executable <code>/JavaScript</code>, <code>/JS</code>, <code>/OpenAction</code>, <code>/AA</code>, <code>/Launch</code>, <code>/SubmitForm</code>, and external triggers.</p>
+            </div>
+            <span id="badge-actions" class="badge badge-ok">NONE</span>
+          </div>
+          <div id="body-actions"></div>
+        </article>
+
+        <!-- 7. AcroForm Fields -->
+        <article id="card-forms" class="finding-card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Interactive Form Data (AcroForm)</h3>
+              <p class="card-explain">Lists interactive form fields (<code>/AcroForm</code>) and any populated or residual field values.</p>
+            </div>
+            <span id="badge-forms" class="badge badge-ok">0 FIELDS</span>
+          </div>
+          <div id="body-forms"></div>
+        </article>
+
+        <!-- 8 & 9. Encryption & Technical Fingerprint -->
+        <article id="card-tech" class="finding-card full-span">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Encryption &amp; Document Structure Fingerprint</h3>
+              <p class="card-explain">Low-level structural properties, security handler status, producer software signature, and embedded font inventory.</p>
+            </div>
+            <span id="badge-encrypt" class="badge badge-info">UNENCRYPTED</span>
+          </div>
+          <div id="body-tech"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Who It Is For -->
+    <section class="info-section" aria-labelledby="who-heading">
+      <h2 id="who-heading" class="section-heading">Who LeakyPDF is built for</h2>
+      <p class="section-lead">Before transmitting confidential documents externally, verify what travels beneath the visible page.</p>
+      <div class="audience-grid">
+        <div class="info-card">
+          <h3>Lawyers &amp; Legal Teams</h3>
+          <p>Verify that opposing counsel discovery productions, settlement drafts, and redacted exhibits do not retain unapplied redaction boxes, internal review comments, or earlier contract revisions.</p>
+        </div>
+        <div class="info-card">
+          <h3>Doctors &amp; Healthcare</h3>
+          <p>Confirm patient referrals, discharge summaries, and insurance forms are stripped of staff usernames, hidden form fields, and prior patient edit history before sharing.</p>
+        </div>
+        <div class="info-card">
+          <h3>HR &amp; Government Offices</h3>
+          <p>Audit public records releases, employee investigation reports, and compensation memos for hidden spreadsheet attachments, author trails, and incremental saves.</p>
+        </div>
+        <div class="info-card">
+          <h3>Journalists &amp; Researchers</h3>
+          <p>Inspect leaked or public-agency PDFs to discover original creation software, revision timelines, embedded source files, or improperly redacted text.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="info-section" aria-labelledby="how-heading">
+      <h2 id="how-heading" class="section-heading">How it works</h2>
+      <p class="section-lead">A zero-dependency binary PDF parser running entirely inside your browser's memory.</p>
+      <div class="steps-grid">
+        <div class="info-card">
+          <div class="step-num">1</div>
+          <h3>Binary Byte Scanning</h3>
+          <p>LeakyPDF reads the file via the browser File API, locates all <code>%%EOF</code> markers, cross-reference tables, and indirect <code>obj ... endobj</code> records directly from raw bytes.</p>
+        </div>
+        <div class="info-card">
+          <div class="step-num">2</div>
+          <h3>Stream Decompression</h3>
+          <p>Compressed object streams (<code>/Type /ObjStm</code>), XMP XML packets, and embedded attachments compressed with <code>/FlateDecode</code> are unpacked locally using the native Web Streams <code>DecompressionStream</code> API.</p>
+        </div>
+        <div class="info-card">
+          <div class="step-num">3</div>
+          <h3>Forensic Risk Audit</h3>
+          <p>Every dictionary is evaluated for privacy leaks, incremental revision snapshots are carved for inspection, and an exportable Markdown or JSON report is generated offline.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="info-section" aria-labelledby="faq-heading">
+      <h2 id="faq-heading" class="section-heading">Frequently Asked Questions</h2>
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary>Are my PDF files uploaded to any server?</summary>
+          <p>No. LeakyPDF is a single static HTML file with zero external network requests. All byte parsing, deflate decompression, and revision extraction run locally inside your browser tab. You can disconnect from the internet after loading the page and it will work identically.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Why do incremental updates keep earlier versions of a PDF recoverable?</summary>
+          <p>When you click "Save" (rather than "Save As") in many PDF editors, the software appends changed objects and a new cross-reference table after the existing <code>%%EOF</code> marker instead of rewriting the file. Truncating the file at an earlier <code>%%EOF</code> lets anyone open the document as it existed before those edits.</p>
+        </details>
+        <details class="faq-item">
+          <summary>What is the difference between a black rectangle and an applied redaction?</summary>
+          <p>Drawing a black shape or placing a redaction mark (<code>/Subtype /Redact</code>) in a PDF editor only adds an annotation layer on top of the page. Until you click "Apply Redactions" to permanently strip the underlying text operators, the sensitive words remain selectable and extractable in the page stream.</p>
+        </details>
+        <details class="faq-item">
+          <summary>How do I permanently strip hidden metadata, comments, and old versions from a PDF?</summary>
+          <p>Use your PDF editor's dedicated sanitization tool (such as "Sanitize Document" or "Remove Hidden Information" in Adobe Acrobat) and save a fresh copy. Alternatively, printing the PDF to a new PDF or rasterizing sensitive pages flattens layers, removes incremental history, and discards annotations—though you should always re-check the output file with LeakyPDF afterward.</p>
+        </details>
+        <details class="faq-item">
+          <summary>What happens if I scan an encrypted or password-protected PDF?</summary>
+          <p>If a PDF uses standard encryption (<code>/Encrypt</code> dictionary present), its object streams and strings are cryptographically scrambled. LeakyPDF detects and reports the encryption parameters, version, and revision count, and notes that encrypted internal objects cannot be inspected without first decrypting the document.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Does LeakyPDF inspect text hidden under opaque black vector rectangles?</summary>
+          <p>LeakyPDF specifically detects unapplied <code>/Redact</code> annotations, annotation overlays, and earlier incremental revisions. Because black vector rectangles drawn without redaction annotations require full page content-stream graphics state rendering, you should always visually test redactions by trying to select and copy text across redacted areas in addition to running LeakyPDF.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        Built by <a href="https://shrijeetsingh.com" target="_blank" rel="noopener noreferrer">Shrijeet Singh</a>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/shrijeetdev" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/shrijeetdev/leakypdf" target="_blank" rel="noopener noreferrer">Star on GitHub</a>
+        <a href="https://shrijeetdev.github.io/" target="_blank" rel="noopener noreferrer">More free tools</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (() => {
+      "use strict";
+
+      /* =========================================================================
+       * 1. Low-Level Byte & String Helpers
+       * ========================================================================= */
+      const latin1Decoder = new TextDecoder("latin1");
+      const utf8Decoder = new TextDecoder("utf-8", { fatal: false });
+      const utf16beDecoder = new TextDecoder("utf-16be", { fatal: false });
+      const utf16leDecoder = new TextDecoder("utf-16le", { fatal: false });
+      const textEncoder = new TextEncoder();
+
+      function bytesToLatin1(bytes, start = 0, end = bytes.length) {
+        // Process in chunks to avoid call stack / memory spikes on large slices
+        const slice = bytes.subarray(start, end);
+        return latin1Decoder.decode(slice);
+      }
+
+      function formatBytes(num) {
+        if (!Number.isFinite(num) || num < 0) return "0 B";
+        if (num < 1024) return `${num} B`;
+        if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+        return `${(num / (1024 * 1024)).toFixed(2)} MB`;
+      }
+
+      function escapeHtml(str) {
+        return String(str ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      /* PDFDocEncoding lookup table for bytes 0x80..0x9F */
+      const PDF_DOC_EXT = {
+        0x80: 0x2022, 0x81: 0x2020, 0x82: 0x2021, 0x83: 0x2026,
+        0x84: 0x2014, 0x85: 0x2013, 0x86: 0x0192, 0x87: 0x2044,
+        0x88: 0x2039, 0x89: 0x203A, 0x8A: 0x2212, 0x8B: 0x2030,
+        0x8C: 0x201E, 0x8D: 0x201C, 0x8E: 0x201D, 0x8F: 0x2018,
+        0x90: 0x2019, 0x91: 0x201A, 0x92: 0x2122, 0x93: 0xFB01,
+        0x94: 0xFB02, 0x95: 0x0141, 0x96: 0x0152, 0x97: 0x0160,
+        0x98: 0x0178, 0x99: 0x017D, 0x9A: 0x0131, 0x9B: 0x0142,
+        0x9C: 0x0153, 0x9D: 0x0161, 0x9E: 0x017E, 0xA0: 0x20AC
+      };
+
+      function decodePdfStringBytes(rawBytes) {
+        if (!rawBytes || rawBytes.length === 0) return "";
+        // UTF-16BE BOM: FE FF
+        if (rawBytes.length >= 2 && rawBytes[0] === 0xFE && rawBytes[1] === 0xFF) {
+          return utf16beDecoder.decode(rawBytes.subarray(2)).replace(/\u0000/g, "");
+        }
+        // UTF-16LE BOM: FF FE
+        if (rawBytes.length >= 2 && rawBytes[0] === 0xFF && rawBytes[1] === 0xFE) {
+          return utf16leDecoder.decode(rawBytes.subarray(2)).replace(/\u0000/g, "");
+        }
+        // UTF-8 BOM: EF BB BF
+        if (rawBytes.length >= 3 && rawBytes[0] === 0xEF && rawBytes[1] === 0xBB && rawBytes[2] === 0xBF) {
+          return utf8Decoder.decode(rawBytes.subarray(3));
+        }
+        // Default PDFDocEncoding
+        let out = "";
+        for (let i = 0; i < rawBytes.length; i++) {
+          const b = rawBytes[i];
+          if (b === 0) continue;
+          if (PDF_DOC_EXT[b] !== undefined) {
+            out += String.fromCharCode(PDF_DOC_EXT[b]);
+          } else {
+            out += String.fromCharCode(b);
+          }
+        }
+        return out;
+      }
+
+      /**
+       * Decode PDF date string format: D:YYYYMMDDHHmmSSOHH'mm'
+       */
+      function formatPdfDate(raw) {
+        if (!raw || typeof raw !== "string") return raw || "";
+        const cleaned = raw.trim();
+        const m = cleaned.match(
+          /^(?:D:)?(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?([Z+\-])?(?:(\d{2})'?(\d{2})'?)?/i
+        );
+        if (!m) return cleaned;
+        const year = m[1];
+        const month = m[2] || "01";
+        const day = m[3] || "01";
+        const hour = m[4] || "00";
+        const min = m[5] || "00";
+        const sec = m[6] || "00";
+        const tzSign = m[7] || "";
+        const tzH = m[8] || "";
+        const tzM = m[9] || "";
+        let tz = "";
+        if (tzSign === "Z" || tzSign === "z") {
+          tz = " UTC";
+        } else if ((tzSign === "+" || tzSign === "-") && tzH) {
+          tz = ` UTC${tzSign}${tzH}:${tzM || "00"}`;
+        }
+        return `${year}-${month}-${day} ${hour}:${min}:${sec}${tz} (${cleaned})`;
+      }
+
+      /* =========================================================================
+       * 2. Native Decompression Helpers (FlateDecode / ASCII85 / ASCIIHex)
+       * ========================================================================= */
+      async function inflateBytes(compressed) {
+        if (typeof DecompressionStream === "undefined") {
+          throw new Error("DecompressionStream API not supported in this browser.");
+        }
+        // Try standard zlib-wrapped 'deflate' first, fallback to 'deflate-raw'
+        for (const format of ["deflate", "deflate-raw"]) {
+          try {
+            const ds = new DecompressionStream(format);
+            const writer = ds.writable.getWriter();
+            const reader = ds.readable.getReader();
+            writer.write(compressed).catch(() => {});
+            writer.close().catch(() => {});
+            const chunks = [];
+            let total = 0;
+            // Cap decompressed stream at 35 MB to guard against zip-bomb PDFs
+            const MAX_DECOMP = 35 * 1024 * 1024;
+            while (true) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              if (value) {
+                total += value.byteLength;
+                if (total > MAX_DECOMP) {
+                  reader.cancel().catch(() => {});
+                  throw new Error("Decompressed stream exceeded 35 MB safety limit.");
+                }
+                chunks.push(value);
+              }
+            }
+            const out = new Uint8Array(total);
+            let offset = 0;
+            for (const c of chunks) {
+              out.set(c, offset);
+              offset += c.byteLength;
+            }
+            return out;
+          } catch (_err) {
+            // Try next format
+          }
+        }
+        throw new Error("Failed to inflate FlateDecode stream.");
+      }
+
+      function decodeAsciiHex(bytes) {
+        const str = bytesToLatin1(bytes).replace(/\s+/g, "");
+        const endIdx = str.indexOf(">");
+        const hex = endIdx >= 0 ? str.slice(0, endIdx) : str;
+        const padded = hex.length % 2 === 1 ? hex + "0" : hex;
+        const out = new Uint8Array(padded.length / 2);
+        for (let i = 0; i < padded.length; i += 2) {
+          out[i / 2] = parseInt(padded.slice(i, i + 2), 16) || 0;
+        }
+        return out;
+      }
+
+      function decodeAscii85(bytes) {
+        let str = bytesToLatin1(bytes).replace(/\s+/g, "");
+        if (str.startsWith("<~")) str = str.slice(2);
+        const endIdx = str.indexOf("~>");
+        if (endIdx >= 0) str = str.slice(0, endIdx);
+        const out = [];
+        let group = [];
+        for (let i = 0; i < str.length; i++) {
+          const ch = str[i];
+          if (ch === "z" && group.length === 0) {
+            out.push(0, 0, 0, 0);
+            continue;
+          }
+          const code = ch.charCodeAt(0) - 33;
+          if (code < 0 || code > 84) continue;
+          group.push(code);
+          if (group.length === 5) {
+            let val = 0;
+            for (let j = 0; j < 5; j++) val = val * 85 + group[j];
+            out.push((val >>> 24) & 0xff, (val >>> 16) & 0xff, (val >>> 8) & 0xff, val & 0xff);
+            group = [];
+          }
+        }
+        if (group.length > 1) {
+          const count = group.length;
+          while (group.length < 5) group.push(84);
+          let val = 0;
+          for (let j = 0; j < 5; j++) val = val * 85 + group[j];
+          const bytesRem = [(val >>> 24) & 0xff, (val >>> 16) & 0xff, (val >>> 8) & 0xff, val & 0xff];
+          for (let j = 0; j < count - 1; j++) out.push(bytesRem[j]);
+        }
+        return new Uint8Array(out);
+      }
+
+      /* PNG / TIFF Predictor reversal for FlateDecode streams (e.g. ObjStm / XRef) */
+      function undoPngPredictor(data, columns, predictor) {
+        if (predictor < 10 || columns <= 0) return data;
+        const rowStride = columns + 1;
+        const rows = Math.floor(data.length / rowStride);
+        const out = new Uint8Array(rows * columns);
+        let prevRow = new Uint8Array(columns);
+        for (let r = 0; r < rows; r++) {
+          const filter = data[r * rowStride];
+          const curRow = new Uint8Array(columns);
+          for (let c = 0; c < columns; c++) {
+            const raw = data[r * rowStride + 1 + c];
+            const left = c > 0 ? curRow[c - 1] : 0;
+            const up = prevRow[c];
+            const upLeft = c > 0 ? prevRow[c - 1] : 0;
+            let val = raw;
+            if (filter === 1) val = (raw + left) & 0xff;
+            else if (filter === 2) val = (raw + up) & 0xff;
+            else if (filter === 3) val = (raw + Math.floor((left + up) / 2)) & 0xff;
+            else if (filter === 4) {
+              const p = left + up - upLeft;
+              const pa = Math.abs(p - left);
+              const pb = Math.abs(p - up);
+              const pc = Math.abs(p - upLeft);
+              const pr = pa <= pb && pa <= pc ? left : pb <= pc ? up : upLeft;
+              val = (raw + pr) & 0xff;
+            }
+            curRow[c] = val;
+          }
+          out.set(curRow, r * columns);
+          prevRow = curRow;
+        }
+        return out;
+      }
+
+      /* =========================================================================
+       * 3. Recursive-Descent PDF Object & Dictionary Parser
+       * ========================================================================= */
+      class PdfLexer {
+        constructor(bytes, start = 0, end = bytes.length) {
+          this.bytes = bytes;
+          this.pos = start;
+          this.end = end;
+        }
+
+        skipWsAndComments() {
+          const b = this.bytes;
+          while (this.pos < this.end) {
+            const c = b[this.pos];
+            if (c === 0x00 || c === 0x09 || c === 0x0A || c === 0x0C || c === 0x0D || c === 0x20) {
+              this.pos++;
+            } else if (c === 0x25) { // '%' comment until EOL
+              while (this.pos < this.end && b[this.pos] !== 0x0A && b[this.pos] !== 0x0D) {
+                this.pos++;
+              }
+            } else {
+              break;
+            }
+          }
+        }
+
+        isDelimiter(c) {
+          return (
+            c === 0x00 || c === 0x09 || c === 0x0A || c === 0x0C || c === 0x0D || c === 0x20 ||
+            c === 0x28 || c === 0x29 || c === 0x3C || c === 0x3E || c === 0x5B || c === 0x5D ||
+            c === 0x7B || c === 0x7D || c === 0x2F || c === 0x25
+          );
+        }
+
+        parseValue(depth = 0) {
+          if (depth > 32) return null;
+          this.skipWsAndComments();
+          if (this.pos >= this.end) return undefined;
+          const b = this.bytes;
+          const c = b[this.pos];
+
+          // Dictionary << ... >> or Hex String < ... >
+          if (c === 0x3C) {
+            if (this.pos + 1 < this.end && b[this.pos + 1] === 0x3C) {
+              return this.parseDict(depth + 1);
+            }
+            return this.parseHexString();
+          }
+
+          // Array [ ... ]
+          if (c === 0x5B) {
+            return this.parseArray(depth + 1);
+          }
+
+          // Literal String ( ... )
+          if (c === 0x28) {
+            return this.parseLiteralString();
+          }
+
+          // Name /Example
+          if (c === 0x2F) {
+            return this.parseName();
+          }
+
+          // Number or indirect reference (N M R)
+          if ((c >= 0x30 && c <= 0x39) || c === 0x2B || c === 0x2D || c === 0x2E) {
+            const num1 = this.parseNumber();
+            if (Number.isInteger(num1) && num1 >= 0) {
+              const saved = this.pos;
+              this.skipWsAndComments();
+              if (this.pos < this.end && b[this.pos] >= 0x30 && b[this.pos] <= 0x39) {
+                const num2 = this.parseNumber();
+                if (Number.isInteger(num2) && num2 >= 0) {
+                  this.skipWsAndComments();
+                  if (this.pos < this.end && b[this.pos] === 0x52) { // 'R'
+                    const afterR = this.pos + 1;
+                    if (afterR >= this.end || this.isDelimiter(b[afterR])) {
+                      this.pos = afterR;
+                      return { __ref: true, objNum: num1, gen: num2 };
+                    }
+                  }
+                }
+              }
+              this.pos = saved;
+            }
+            return num1;
+          }
+
+          // Keywords: true, false, null, or unexpected token
+          const word = this.parseWord();
+          if (word === "true") return true;
+          if (word === "false") return false;
+          if (word === "null") return null;
+          return { __kw: word };
+        }
+
+        parseWord() {
+          const b = this.bytes;
+          const start = this.pos;
+          while (this.pos < this.end && !this.isDelimiter(b[this.pos])) {
+            this.pos++;
+          }
+          if (this.pos === start && this.pos < this.end) {
+            this.pos++;
+          }
+          return bytesToLatin1(b, start, this.pos);
+        }
+
+        parseNumber() {
+          const b = this.bytes;
+          const start = this.pos;
+          while (this.pos < this.end) {
+            const c = b[this.pos];
+            if ((c >= 0x30 && c <= 0x39) || c === 0x2B || c === 0x2D || c === 0x2E) {
+              this.pos++;
+            } else {
+              break;
+            }
+          }
+          const str = bytesToLatin1(b, start, this.pos);
+          const n = Number(str);
+          return Number.isNaN(n) ? 0 : n;
+        }
+
+        parseName() {
+          const b = this.bytes;
+          this.pos++; // skip '/'
+          const chars = [];
+          while (this.pos < this.end && !this.isDelimiter(b[this.pos])) {
+            if (b[this.pos] === 0x23 && this.pos + 2 < this.end) {
+              const hex = bytesToLatin1(b, this.pos + 1, this.pos + 3);
+              if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+                chars.push(parseInt(hex, 16));
+                this.pos += 3;
+                continue;
+              }
+            }
+            chars.push(b[this.pos]);
+            this.pos++;
+          }
+          return "/" + utf8Decoder.decode(new Uint8Array(chars));
+        }
+
+        parseLiteralString() {
+          const b = this.bytes;
+          this.pos++; // skip '('
+          let depth = 1;
+          const out = [];
+          while (this.pos < this.end && depth > 0) {
+            const c = b[this.pos++];
+            if (c === 0x5C && this.pos < this.end) { // '\' escape
+              const esc = b[this.pos++];
+              if (esc === 0x6E) out.push(0x0A); // \n
+              else if (esc === 0x72) out.push(0x0D); // \r
+              else if (esc === 0x74) out.push(0x09); // \t
+              else if (esc === 0x62) out.push(0x08); // \b
+              else if (esc === 0x66) out.push(0x0C); // \f
+              else if (esc === 0x0D) {
+                if (this.pos < this.end && b[this.pos] === 0x0A) this.pos++;
+              } else if (esc === 0x0A) {
+                // line continuation
+              } else if (esc >= 0x30 && esc <= 0x37) {
+                let oct = String.fromCharCode(esc);
+                for (let k = 0; k < 2 && this.pos < this.end; k++) {
+                  const next = b[this.pos];
+                  if (next >= 0x30 && next <= 0x37) {
+                    oct += String.fromCharCode(next);
+                    this.pos++;
+                  } else {
+                    break;
+                  }
+                }
+                out.push(parseInt(oct, 8) & 0xff);
+              } else {
+                out.push(esc);
+              }
+            } else if (c === 0x28) {
+              depth++;
+              out.push(c);
+            } else if (c === 0x29) {
+              depth--;
+              if (depth > 0) out.push(c);
+            } else {
+              out.push(c);
+            }
+          }
+          const raw = new Uint8Array(out);
+          return { __str: true, raw, text: decodePdfStringBytes(raw) };
+        }
+
+        parseHexString() {
+          const b = this.bytes;
+          this.pos++; // skip '<'
+          let hex = "";
+          while (this.pos < this.end && b[this.pos] !== 0x3E) {
+            const c = b[this.pos++];
+            if (
+              (c >= 0x30 && c <= 0x39) ||
+              (c >= 0x41 && c <= 0x46) ||
+              (c >= 0x61 && c <= 0x66)
+            ) {
+              hex += String.fromCharCode(c);
+            }
+          }
+          if (this.pos < this.end && b[this.pos] === 0x3E) this.pos++;
+          if (hex.length % 2 === 1) hex += "0";
+          const raw = new Uint8Array(hex.length / 2);
+          for (let i = 0; i < hex.length; i += 2) {
+            raw[i / 2] = parseInt(hex.slice(i, i + 2), 16) || 0;
+          }
+          return { __str: true, raw, text: decodePdfStringBytes(raw) };
+        }
+
+        parseArray(depth) {
+          const b = this.bytes;
+          this.pos++; // skip '['
+          const arr = [];
+          while (this.pos < this.end) {
+            this.skipWsAndComments();
+            if (this.pos >= this.end) break;
+            if (b[this.pos] === 0x5D) { // ']'
+              this.pos++;
+              break;
+            }
+            const val = this.parseValue(depth);
+            if (val === undefined) break;
+            arr.push(val);
+          }
+          return arr;
+        }
+
+        parseDict(depth) {
+          const b = this.bytes;
+          this.pos += 2; // skip '<<'
+          const dict = {};
+          while (this.pos < this.end) {
+            this.skipWsAndComments();
+            if (this.pos >= this.end) break;
+            if (b[this.pos] === 0x3E && b[this.pos + 1] === 0x3E) {
+              this.pos += 2;
+              break;
+            }
+            const key = this.parseValue(depth);
+            if (key === undefined) break;
+            if (typeof key !== "string" || !key.startsWith("/")) {
+              // Recover if malformed token inside dict
+              continue;
+            }
+            const val = this.parseValue(depth);
+            if (val === undefined) break;
+            dict[key] = val;
+          }
+          return dict;
+        }
+      }
+
+      /* =========================================================================
+       * 4. Full Raw-Byte PDF Forensic Engine
+       * ========================================================================= */
+      const MAX_OBJECTS_TO_SCAN = 25000;
+      const MAX_STREAMS_TO_DECOMPRESS = 600;
+
+      function isDict(v) {
+        return v !== null && typeof v === "object" && !Array.isArray(v) && !v.__ref && !v.__str && !v.__kw;
+      }
+
+      function isRef(v) {
+        return v !== null && typeof v === "object" && v.__ref === true;
+      }
+
+      function isPdfStr(v) {
+        return v !== null && typeof v === "object" && v.__str === true;
+      }
+
+      function asText(v) {
+        if (v === null || v === undefined) return "";
+        if (typeof v === "string") return v;
+        if (typeof v === "number" || typeof v === "boolean") return String(v);
+        if (isPdfStr(v)) return v.text;
+        return "";
+      }
+
+      function findAllBytePattern(haystack, needleStr) {
+        const needle = textEncoder.encode(needleStr);
+        const matches = [];
+        const nLen = needle.length;
+        const limit = haystack.length - nLen;
+        for (let i = 0; i <= limit; i++) {
+          let ok = true;
+          for (let j = 0; j < nLen; j++) {
+            if (haystack[i + j] !== needle[j]) {
+              ok = false;
+              break;
+            }
+          }
+          if (ok) {
+            matches.push(i);
+            i += nLen - 1;
+          }
+        }
+        return matches;
+      }
+
+      async function yieldToUi() {
+        await new Promise((r) => setTimeout(r, 0));
+      }
+
+      async function analyzePdfBytes(bytes, fileName, onProgress) {
+        const report = {
+          fileName,
+          fileSize: bytes.length,
+          pdfVersion: "Unknown",
+          linearized: false,
+          objectCount: 0,
+          revisions: [],
+          xrefCount: 0,
+          encrypted: false,
+          encryptInfo: null,
+          docInfo: {},
+          xmp: {
+            present: false,
+            fields: {},
+            history: [],
+            rawSnippet: ""
+          },
+          annotations: [],
+          redactions: [],
+          attachments: [],
+          actions: [],
+          forms: [],
+          pageCount: 0,
+          fonts: [],
+          warnings: [],
+          truncatedScan: false
+        };
+
+        onProgress(5, "Validating PDF header & EOF revisions…");
+        await yieldToUi();
+
+        // Check %PDF-x.y header within first 1024 bytes
+        const headStr = bytesToLatin1(bytes, 0, Math.min(bytes.length, 1024));
+        const verMatch = headStr.match(/%PDF-(\d+\.\d+)/);
+        if (!verMatch) {
+          throw new Error("Invalid PDF file: '%PDF-' signature header not found in the first 1024 bytes.");
+        }
+        report.pdfVersion = verMatch[1];
+
+        // 1. Find all %%EOF markers for incremental revisions
+        const eofOffsets = findAllBytePattern(bytes, "%%EOF");
+        const xrefOffsets = findAllBytePattern(bytes, "xref");
+        report.xrefCount = xrefOffsets.length;
+
+        const validRevisions = [];
+        for (let i = 0; i < eofOffsets.length; i++) {
+          let endPos = eofOffsets[i] + 5;
+          if (endPos < bytes.length && bytes[endPos] === 0x0D) endPos++;
+          if (endPos < bytes.length && bytes[endPos] === 0x0A) endPos++;
+          // Ignore tiny spurious %%EOF < 64 bytes
+          if (endPos >= 64) {
+            validRevisions.push({
+              index: validRevisions.length + 1,
+              eofOffset: eofOffsets[i],
+              endByte: endPos
+            });
+          }
+        }
+        if (validRevisions.length === 0) {
+          validRevisions.push({ index: 1, eofOffset: bytes.length, endByte: bytes.length });
+        }
+        report.revisions = validRevisions;
+
+        // 2. Scan all indirect objects: `N M obj ... endobj`
+        onProgress(16, "Scanning indirect objects & streams…");
+        await yieldToUi();
+
+        const objects = new Map(); // key: "objNum:gen" -> { objNum, gen, value, streamRaw, streamDec, dict, offset }
+        const objHeaderRegex = /(?:^|[\r\n\s])(\d{1,7})\s+(\d{1,5})\s+obj(?=[\s<\[\/(%])/g;
+
+        // Scan in 1 MB string chunks with 64-byte overlap so regex works reliably even on 50MB+ PDFs
+        const CHUNK_SIZE = 1024 * 1024;
+        const OVERLAP = 64;
+        const headers = [];
+
+        for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE - OVERLAP) {
+          const sliceEnd = Math.min(bytes.length, offset + CHUNK_SIZE);
+          const chunkStr = bytesToLatin1(bytes, offset, sliceEnd);
+          objHeaderRegex.lastIndex = 0;
+          let m;
+          while ((m = objHeaderRegex.exec(chunkStr)) !== null) {
+            const matchText = m[0];
+            const leadingWs = matchText.length - matchText.trimStart().length;
+            const absPos = offset + m.index + leadingWs;
+            // Avoid duplicates from overlap window
+            if (headers.length === 0 || absPos > headers[headers.length - 1].offset) {
+              headers.push({
+                objNum: parseInt(m[1], 10),
+                gen: parseInt(m[2], 10),
+                offset: absPos,
+                bodyStart: offset + m.index + matchText.length
+              });
+            }
+          }
+          if (headers.length >= MAX_OBJECTS_TO_SCAN) {
+            report.truncatedScan = true;
+            report.warnings.push(`Object scan capped at ${MAX_OBJECTS_TO_SCAN} objects for browser stability.`);
+            break;
+          }
+          if (offset % (CHUNK_SIZE * 4) === 0 && offset > 0) {
+            const pct = 16 + Math.min(24, Math.round((offset / bytes.length) * 24));
+            onProgress(pct, `Indexed ${headers.length} indirect objects…`);
+            await yieldToUi();
+          }
+        }
+
+        // Parse each indirect object body
+        onProgress(42, `Parsing ${headers.length} PDF objects…`);
+        await yieldToUi();
+
+        for (let i = 0; i < headers.length; i++) {
+          const h = headers[i];
+          const nextOffset = i + 1 < headers.length ? headers[i + 1].offset : bytes.length;
+          const lexer = new PdfLexer(bytes, h.bodyStart, nextOffset);
+          const value = lexer.parseValue(0);
+
+          let streamRaw = null;
+          if (isDict(value)) {
+            lexer.skipWsAndComments();
+            // Check for 'stream' keyword
+            if (
+              lexer.pos + 6 <= nextOffset &&
+              bytes[lexer.pos] === 0x73 &&
+              bytes[lexer.pos + 1] === 0x74 &&
+              bytes[lexer.pos + 2] === 0x72 &&
+              bytes[lexer.pos + 3] === 0x65 &&
+              bytes[lexer.pos + 4] === 0x61 &&
+              bytes[lexer.pos + 5] === 0x6D
+            ) {
+              let sStart = lexer.pos + 6;
+              if (bytes[sStart] === 0x0D && bytes[sStart + 1] === 0x0A) sStart += 2;
+              else if (bytes[sStart] === 0x0A || bytes[sStart] === 0x0D) sStart += 1;
+
+              let sEnd = -1;
+              const declLen = typeof value["/Length"] === "number" ? value["/Length"] : null;
+              if (declLen !== null && declLen >= 0 && sStart + declLen <= nextOffset) {
+                sEnd = sStart + declLen;
+              } else {
+                // Search for endstream before nextOffset
+                const windowSlice = bytes.subarray(sStart, nextOffset);
+                const endHits = findAllBytePattern(windowSlice, "endstream");
+                if (endHits.length > 0) {
+                  let candidate = sStart + endHits[0];
+                  if (candidate > sStart && bytes[candidate - 1] === 0x0A) candidate--;
+                  if (candidate > sStart && bytes[candidate - 1] === 0x0D) candidate--;
+                  sEnd = candidate;
+                }
+              }
+              if (sEnd >= sStart && sEnd <= bytes.length) {
+                streamRaw = bytes.subarray(sStart, sEnd);
+              }
+            }
+          }
+
+          // Later incremental objects with same objNum:gen override earlier ones in the active view,
+          // while we keep a history list of all versions of each object
+          const key = `${h.objNum}:${h.gen}`;
+          const objRecord = {
+            objNum: h.objNum,
+            gen: h.gen,
+            value,
+            dict: isDict(value) ? value : null,
+            streamRaw,
+            streamDec: null,
+            offset: h.offset
+          };
+          objects.set(key, objRecord);
+
+          if (i % 800 === 0 && i > 0) {
+            const pct = 42 + Math.round((i / headers.length) * 18);
+            onProgress(pct, `Parsed ${i}/${headers.length} objects…`);
+            await yieldToUi();
+          }
+        }
+
+        // Also parse trailer dictionaries
+        const trailers = [];
+        const trailerHits = findAllBytePattern(bytes, "trailer");
+        for (const tOff of trailerHits) {
+          const lex = new PdfLexer(bytes, tOff + 7, Math.min(bytes.length, tOff + 4096));
+          const tVal = lex.parseValue(0);
+          if (isDict(tVal)) trailers.push(tVal);
+        }
+
+        // Helper to resolve indirect references
+        function resolve(val, depth = 0) {
+          if (depth > 12) return val;
+          if (isRef(val)) {
+            const target = objects.get(`${val.objNum}:${val.gen}`);
+            if (!target) return null;
+            return resolve(target.value, depth + 1);
+          }
+          return val;
+        }
+
+        function resolveObjRecord(val) {
+          if (isRef(val)) {
+            return objects.get(`${val.objNum}:${val.gen}`) || null;
+          }
+          return null;
+        }
+
+        // Helper to decode stream bytes according to /Filter
+        let decompressedCount = 0;
+        async function getDecodedStream(objRec) {
+          if (!objRec || !objRec.streamRaw) return null;
+          if (objRec.streamDec !== null) return objRec.streamDec;
+          if (decompressedCount >= MAX_STREAMS_TO_DECOMPRESS) return objRec.streamRaw;
+
+          const dict = objRec.dict || {};
+          let filters = dict["/Filter"];
+          if (!filters) {
+            objRec.streamDec = objRec.streamRaw;
+            return objRec.streamDec;
+          }
+          if (!Array.isArray(filters)) filters = [filters];
+
+          let decodeParms = resolve(dict["/DecodeParms"]);
+          if (!Array.isArray(decodeParms)) decodeParms = [decodeParms];
+
+          let current = objRec.streamRaw;
+          decompressedCount++;
+          for (let fIdx = 0; fIdx < filters.length; fIdx++) {
+            const fname = filters[fIdx];
+            const parms = resolve(decodeParms[fIdx]) || {};
+            if (fname === "/FlateDecode" || fname === "/Fl") {
+              current = await inflateBytes(current);
+              if (isDict(parms) && typeof parms["/Predictor"] === "number" && parms["/Predictor"] >= 10) {
+                const cols = typeof parms["/Columns"] === "number" ? parms["/Columns"] : 1;
+                current = undoPngPredictor(current, cols, parms["/Predictor"]);
+              }
+            } else if (fname === "/ASCIIHexDecode" || fname === "/AHx") {
+              current = decodeAsciiHex(current);
+            } else if (fname === "/ASCII85Decode" || fname === "/A85") {
+              current = decodeAscii85(current);
+            }
+          }
+          objRec.streamDec = current;
+          return current;
+        }
+
+        // Check /Encrypt and /Linearized early
+        for (const t of trailers) {
+          if (t["/Encrypt"]) report.encrypted = true;
+        }
+        for (const obj of objects.values()) {
+          if (obj.dict) {
+            if (obj.dict["/Linearized"] !== undefined) report.linearized = true;
+            if (obj.dict["/Type"] === "/XRef" && obj.dict["/Encrypt"]) report.encrypted = true;
+            if (obj.dict["/Filter"] === "/Standard" && obj.dict["/V"] !== undefined && obj.dict["/R"] !== undefined) {
+              report.encrypted = true;
+              report.encryptInfo = {
+                filter: String(obj.dict["/Filter"] || "/Standard"),
+                v: obj.dict["/V"],
+                r: obj.dict["/R"],
+                length: obj.dict["/Length"] || (obj.dict["/V"] === 1 ? 40 : 128),
+                p: obj.dict["/P"]
+              };
+            }
+          }
+        }
+
+        // 3. Unpack Object Streams (/Type /ObjStm)
+        onProgress(62, "Unpacking compressed object streams (/ObjStm)…");
+        await yieldToUi();
+
+        if (!report.encrypted) {
+          const objStmList = [];
+          for (const obj of objects.values()) {
+            if (obj.dict && obj.dict["/Type"] === "/ObjStm" && obj.streamRaw) {
+              objStmList.push(obj);
+            }
+          }
+          for (const stmObj of objStmList) {
+            try {
+              const n = Number(stmObj.dict["/N"] || 0);
+              const first = Number(stmObj.dict["/First"] || 0);
+              if (n <= 0 || first <= 0 || n > 10000) continue;
+              const dec = await getDecodedStream(stmObj);
+              if (!dec || dec.length < first) continue;
+
+              const headerLex = new PdfLexer(dec, 0, first);
+              const entries = [];
+              for (let k = 0; k < n; k++) {
+                const embeddedNum = headerLex.parseValue(0);
+                const relOffset = headerLex.parseValue(0);
+                if (typeof embeddedNum === "number" && typeof relOffset === "number") {
+                  entries.push({ objNum: embeddedNum, offset: first + relOffset });
+                }
+              }
+              for (let k = 0; k < entries.length; k++) {
+                const start = entries[k].offset;
+                const end = k + 1 < entries.length ? entries[k + 1].offset : dec.length;
+                if (start >= first && start < dec.length) {
+                  const valLex = new PdfLexer(dec, start, Math.min(dec.length, end));
+                  const val = valLex.parseValue(0);
+                  const key = `${entries[k].objNum}:0`;
+                  if (!objects.has(key)) {
+                    objects.set(key, {
+                      objNum: entries[k].objNum,
+                      gen: 0,
+                      value: val,
+                      dict: isDict(val) ? val : null,
+                      streamRaw: null,
+                      streamDec: null,
+                      offset: stmObj.offset,
+                      fromObjStm: stmObj.objNum
+                    });
+                  }
+                }
+              }
+            } catch (err) {
+              report.warnings.push(`Could not decompress Object Stream #${stmObj.objNum}: ${err.message}`);
+            }
+          }
+        }
+
+        report.objectCount = objects.size;
+
+        // Locate /Root (Catalog) and /Info dictionaries
+        let catalogDict = null;
+        let infoDict = null;
+
+        for (let i = trailers.length - 1; i >= 0; i--) {
+          if (!catalogDict && trailers[i]["/Root"]) {
+            const c = resolve(trailers[i]["/Root"]);
+            if (isDict(c)) catalogDict = c;
+          }
+          if (!infoDict && trailers[i]["/Info"]) {
+            const inf = resolve(trailers[i]["/Info"]);
+            if (isDict(inf)) infoDict = inf;
+          }
+        }
+
+        // Fallback if PDF uses cross-reference streams (/Type /XRef) instead of classic trailer
+        for (const obj of objects.values()) {
+          if (!obj.dict) continue;
+          if (!catalogDict && obj.dict["/Type"] === "/Catalog") {
+            catalogDict = obj.dict;
+          }
+          if (obj.dict["/Type"] === "/XRef") {
+            if (!catalogDict && obj.dict["/Root"]) {
+              const c = resolve(obj.dict["/Root"]);
+              if (isDict(c)) catalogDict = c;
+            }
+            if (!infoDict && obj.dict["/Info"]) {
+              const inf = resolve(obj.dict["/Info"]);
+              if (isDict(inf)) infoDict = inf;
+            }
+          }
+        }
+
+        // Fallback: find any dictionary containing standard Info keys
+        if (!infoDict) {
+          for (const obj of objects.values()) {
+            if (
+              obj.dict &&
+              !obj.dict["/Type"] &&
+              (obj.dict["/Producer"] || obj.dict["/Creator"] || obj.dict["/Author"] || obj.dict["/CreationDate"])
+            ) {
+              infoDict = obj.dict;
+              break;
+            }
+          }
+        }
+
+        // 4. Extract Document Info Dictionary
+        onProgress(74, "Extracting Document Info & XMP metadata…");
+        await yieldToUi();
+
+        const INFO_KEYS = [
+          "/Title", "/Author", "/Subject", "/Keywords",
+          "/Creator", "/Producer", "/CreationDate", "/ModDate", "/Trapped"
+        ];
+        if (infoDict) {
+          for (const k of INFO_KEYS) {
+            if (infoDict[k] !== undefined) {
+              const rawVal = asText(resolve(infoDict[k]));
+              if (rawVal) {
+                const label = k.slice(1);
+                report.docInfo[label] =
+                  label === "CreationDate" || label === "ModDate" ? formatPdfDate(rawVal) : rawVal;
+              }
+            }
+          }
+          // Include any custom non-standard keys in /Info
+          for (const [k, v] of Object.entries(infoDict)) {
+            if (!INFO_KEYS.includes(k) && k.startsWith("/")) {
+              const rawVal = asText(resolve(v));
+              if (rawVal) report.docInfo[k.slice(1)] = rawVal;
+            }
+          }
+        }
+
+        // 5. Extract & Parse XMP Metadata Stream (/Metadata)
+        const xmpRecords = [];
+        for (const obj of objects.values()) {
+          if (
+            obj.dict &&
+            (obj.dict["/Type"] === "/Metadata" || obj.dict["/Subtype"] === "/XML") &&
+            obj.streamRaw
+          ) {
+            xmpRecords.push(obj);
+          }
+        }
+        if (catalogDict && catalogDict["/Metadata"]) {
+          const catMetaRec = resolveObjRecord(catalogDict["/Metadata"]);
+          if (catMetaRec && !xmpRecords.includes(catMetaRec)) {
+            xmpRecords.unshift(catMetaRec);
+          }
+        }
+
+        if (xmpRecords.length > 0 && !report.encrypted) {
+          try {
+            const xmpBytes = await getDecodedStream(xmpRecords[0]);
+            if (xmpBytes && xmpBytes.length > 0) {
+              const xmlStr = utf8Decoder.decode(xmpBytes);
+              if (xmlStr.includes("xmpmeta") || xmlStr.includes("rdf:RDF") || xmlStr.includes("xmlns:")) {
+                report.xmp.present = true;
+                report.xmp.rawSnippet = xmlStr.trim().slice(0, 1200);
+                parseXmpXml(xmlStr, report.xmp);
+              }
+            }
+          } catch (err) {
+            report.warnings.push(`XMP stream read warning: ${err.message}`);
+          }
+        }
+
+        // 6. Inspect Annotations (/Annot) & Unapplied Redactions (/Redact)
+        onProgress(82, "Auditing annotations, redactions & links…");
+        await yieldToUi();
+
+        const seenAnnotKeys = new Set();
+        for (const obj of objects.values()) {
+          if (!obj.dict) continue;
+          const d = obj.dict;
+          const isAnnot =
+            d["/Type"] === "/Annot" ||
+            (typeof d["/Subtype"] === "string" &&
+              ["/Text", "/FreeText", "/Highlight", "/Underline", "/Squiggly", "/StrikeOut", "/Ink", "/Link", "/Popup", "/Redact", "/Stamp", "/Caret", "/FileAttachment"].includes(d["/Subtype"]) &&
+              (d["/Rect"] !== undefined || d["/Contents"] !== undefined || d["/A"] !== undefined || d["/FS"] !== undefined));
+
+          if (!isAnnot) continue;
+          const key = `${obj.objNum}:${obj.gen}`;
+          if (seenAnnotKeys.has(key)) continue;
+          seenAnnotKeys.add(key);
+
+          const subtype = (d["/Subtype"] || "/Unknown").replace(/^\//, "");
+          const author = asText(resolve(d["/T"]));
+          const contents = asText(resolve(d["/Contents"]));
+          const subject = asText(resolve(d["/Subj"]));
+          const modDate = d["/M"] ? formatPdfDate(asText(resolve(d["/M"]))) : "";
+          const overlayText = asText(resolve(d["/OverlayText"]));
+          let uri = "";
+          if (d["/A"]) {
+            const act = resolve(d["/A"]);
+            if (isDict(act) && act["/URI"]) {
+              uri = asText(resolve(act["/URI"]));
+            }
+          }
+
+          const entry = {
+            objNum: obj.objNum,
+            subtype,
+            author,
+            subject,
+            contents,
+            overlayText,
+            uri,
+            modDate
+          };
+
+          if (subtype === "Redact") {
+            report.redactions.push(entry);
+          } else {
+            report.annotations.push(entry);
+          }
+        }
+
+        // 7. Extract Embedded Files (/EmbeddedFiles & /FileAttachment)
+        onProgress(88, "Checking for embedded file attachments…");
+        await yieldToUi();
+
+        const seenFilespec = new Set();
+        async function extractFileSpec(fsDict, sourceLabel, fallbackObjNum = 0) {
+          if (!isDict(fsDict)) return;
+          const name =
+            asText(resolve(fsDict["/UF"])) ||
+            asText(resolve(fsDict["/F"])) ||
+            asText(resolve(fsDict["/Unix"])) ||
+            asText(resolve(fsDict["/DOS"])) ||
+            `embedded_${fallbackObjNum || seenFilespec.size + 1}.bin`;
+
+          const desc = asText(resolve(fsDict["/Desc"]));
+          const ef = resolve(fsDict["/EF"]);
+          let streamObjRec = null;
+          if (isDict(ef)) {
+            const efRef = ef["/UF"] || ef["/F"] || ef["/Unix"] || ef["/DOS"];
+            streamObjRec = resolveObjRecord(efRef);
+          }
+
+          const sig = `${name}:${streamObjRec ? streamObjRec.objNum : fallbackObjNum}`;
+          if (seenFilespec.has(sig)) return;
+          seenFilespec.add(sig);
+
+          let fileBytes = null;
+          let mimeType = "application/octet-stream";
+          if (streamObjRec) {
+            if (streamObjRec.dict && typeof streamObjRec.dict["/Subtype"] === "string") {
+              mimeType = streamObjRec.dict["/Subtype"].slice(1).replace(/#2F/gi, "/");
+            }
+            if (!report.encrypted) {
+              try {
+                fileBytes = await getDecodedStream(streamObjRec);
+              } catch (err) {
+                report.warnings.push(`Could not decompress attachment "${name}": ${err.message}`);
+              }
+            }
+          }
+
+          report.attachments.push({
+            name,
+            description: desc,
+            source: sourceLabel,
+            mimeType,
+            size: fileBytes ? fileBytes.length : streamObjRec && streamObjRec.streamRaw ? streamObjRec.streamRaw.length : 0,
+            bytes: fileBytes
+          });
+        }
+
+        // Traverse /Names -> /EmbeddedFiles name tree
+        function walkNameTree(node, depth = 0) {
+          if (!isDict(node) || depth > 15) return [];
+          const found = [];
+          if (Array.isArray(node["/Names"])) {
+            for (let i = 0; i < node["/Names"].length; i += 2) {
+              const spec = resolve(node["/Names"][i + 1]);
+              if (isDict(spec)) found.push(spec);
+            }
+          }
+          if (Array.isArray(node["/Kids"])) {
+            for (const kidRef of node["/Kids"]) {
+              const kid = resolve(kidRef);
+              if (isDict(kid)) found.push(...walkNameTree(kid, depth + 1));
+            }
+          }
+          return found;
+        }
+
+        if (catalogDict && catalogDict["/Names"]) {
+          const namesDict = resolve(catalogDict["/Names"]);
+          if (isDict(namesDict) && namesDict["/EmbeddedFiles"]) {
+            const efTree = resolve(namesDict["/EmbeddedFiles"]);
+            const specs = walkNameTree(efTree);
+            for (const sp of specs) {
+              await extractFileSpec(sp, "Catalog /EmbeddedFiles");
+            }
+          }
+        }
+
+        // Also scan all /Type /Filespec and /FileAttachment objects across the entire file
+        for (const obj of objects.values()) {
+          if (!obj.dict) continue;
+          if (obj.dict["/Type"] === "/Filespec" || obj.dict["/EF"]) {
+            await extractFileSpec(obj.dict, `Object #${obj.objNum}`, obj.objNum);
+          }
+          if (obj.dict["/Subtype"] === "/FileAttachment" && obj.dict["/FS"]) {
+            const fs = resolve(obj.dict["/FS"]);
+            if (isDict(fs)) {
+              await extractFileSpec(fs, `Page Annotation #${obj.objNum}`, obj.objNum);
+            }
+          }
+        }
+
+        // 8. Detect JavaScript & Auto-Trigger Actions
+        onProgress(93, "Scanning for JavaScript & automatic actions…");
+        await yieldToUi();
+
+        const seenActionKeys = new Set();
+        function addAction(type, location, detail, snippet = "") {
+          const key = `${type}|${location}|${detail}|${snippet.slice(0, 60)}`;
+          if (seenActionKeys.has(key)) return;
+          seenActionKeys.add(key);
+          report.actions.push({ type, location, detail, snippet });
+        }
+
+        async function inspectActionDict(actVal, location, depth = 0) {
+          if (depth > 8) return;
+          const act = resolve(actVal);
+          if (!isDict(act)) return;
+
+          const sType = typeof act["/S"] === "string" ? act["/S"].slice(1) : "";
+          if (sType === "JavaScript" || act["/JS"] !== undefined) {
+            let jsCode = "";
+            const jsVal = act["/JS"];
+            const jsRec = resolveObjRecord(jsVal);
+            if (jsRec && jsRec.streamRaw && !report.encrypted) {
+              try {
+                const dec = await getDecodedStream(jsRec);
+                jsCode = decodePdfStringBytes(dec);
+              } catch {
+                jsCode = "[Compressed JavaScript stream]";
+              }
+            } else {
+              jsCode = asText(resolve(jsVal));
+            }
+            addAction("JavaScript", location, "Executes embedded JavaScript code", jsCode.slice(0, 500));
+          } else if (sType === "Launch") {
+            const target = asText(resolve(act["/F"])) || JSON.stringify(act["/Win"] || act["/Unix"] || "");
+            addAction("Launch", location, "Attempts to launch an external program or file", target);
+          } else if (sType === "SubmitForm") {
+            const urlObj = resolve(act["/F"]);
+            const url = isDict(urlObj) ? asText(resolve(urlObj["/F"])) : asText(urlObj);
+            addAction("SubmitForm", location, "Submits form data to a remote server", url);
+          } else if (sType === "GoToR" || sType === "GoToE") {
+            const target = asText(resolve(act["/F"]));
+            addAction(sType, location, "Opens external or embedded document", target);
+          } else if (sType === "URI") {
+            const uri = asText(resolve(act["/URI"]));
+            addAction("URI Action", location, "External hyperlink action", uri);
+          } else if (sType) {
+            addAction(sType, location, `PDF Action (/S /${sType})`, "");
+          }
+
+          if (act["/Next"]) {
+            const nextList = Array.isArray(act["/Next"]) ? act["/Next"] : [act["/Next"]];
+            for (const nxt of nextList) {
+              await inspectActionDict(nxt, `${location} -> /Next`, depth + 1);
+            }
+          }
+        }
+
+        if (catalogDict) {
+          if (catalogDict["/OpenAction"]) {
+            const oa = resolve(catalogDict["/OpenAction"]);
+            if (isDict(oa)) {
+              await inspectActionDict(oa, "Document /OpenAction");
+            } else if (Array.isArray(oa)) {
+              addAction("OpenAction", "Document /OpenAction", "Auto-navigates to destination on open", "");
+            }
+          }
+          if (catalogDict["/AA"]) {
+            const aa = resolve(catalogDict["/AA"]);
+            if (isDict(aa)) {
+              for (const [ev, trg] of Object.entries(aa)) {
+                await inspectActionDict(trg, `Catalog /AA ${ev}`);
+              }
+            }
+          }
+          if (catalogDict["/Names"]) {
+            const namesDict = resolve(catalogDict["/Names"]);
+            if (isDict(namesDict) && namesDict["/JavaScript"]) {
+              const jsTree = resolve(namesDict["/JavaScript"]);
+              const jsSpecs = walkNameTree(jsTree);
+              for (const sp of jsSpecs) {
+                await inspectActionDict(sp, "Document /Names /JavaScript");
+              }
+            }
+          }
+        }
+
+        for (const obj of objects.values()) {
+          if (!obj.dict) continue;
+          if (obj.dict["/S"] === "/JavaScript" || obj.dict["/JS"] !== undefined) {
+            await inspectActionDict(obj.dict, `Object #${obj.objNum}`);
+          }
+          if (obj.dict["/S"] === "/Launch" || obj.dict["/S"] === "/SubmitForm") {
+            await inspectActionDict(obj.dict, `Object #${obj.objNum}`);
+          }
+          if (obj.dict["/AA"] && isDict(resolve(obj.dict["/AA"]))) {
+            const aa = resolve(obj.dict["/AA"]);
+            for (const [ev, trg] of Object.entries(aa)) {
+              await inspectActionDict(trg, `Object #${obj.objNum} /AA ${ev}`);
+            }
+          }
+        }
+
+        // 9. Extract AcroForm Fields & Values
+        const seenFieldObjs = new Set();
+        function collectFormFields(fieldRef, parentName = "", depth = 0) {
+          if (depth > 12) return;
+          const rec = resolveObjRecord(fieldRef);
+          const dict = rec ? rec.dict : resolve(fieldRef);
+          if (!isDict(dict)) return;
+          if (rec) {
+            if (seenFieldObjs.has(rec.objNum)) return;
+            seenFieldObjs.add(rec.objNum);
+          }
+          const partName = asText(resolve(dict["/T"]));
+          const fullName = parentName && partName ? `${parentName}.${partName}` : partName || parentName;
+
+          if (Array.isArray(dict["/Kids"])) {
+            // Check if kids are sub-fields or widget annotations
+            let hasSubFields = false;
+            for (const kRef of dict["/Kids"]) {
+              const kDict = resolve(kRef);
+              if (isDict(kDict) && kDict["/T"] !== undefined) {
+                hasSubFields = true;
+                collectFormFields(kRef, fullName, depth + 1);
+              }
+            }
+            if (hasSubFields) return;
+          }
+
+          if (fullName || dict["/FT"] || dict["/V"] !== undefined) {
+            const ft = typeof dict["/FT"] === "string" ? dict["/FT"].slice(1) : "Field";
+            const rawV = resolve(dict["/V"]);
+            let valStr = "";
+            if (Array.isArray(rawV)) {
+              valStr = rawV.map((item) => asText(resolve(item))).join(", ");
+            } else {
+              valStr = asText(rawV);
+            }
+            const defaultVal = asText(resolve(dict["/DV"]));
+            report.forms.push({
+              name: fullName || `(Unnamed #${rec ? rec.objNum : "?"})`,
+              type: ft,
+              value: valStr,
+              defaultValue: defaultVal
+            });
+          }
+        }
+
+        if (catalogDict && catalogDict["/AcroForm"]) {
+          const acro = resolve(catalogDict["/AcroForm"]);
+          if (isDict(acro) && Array.isArray(acro["/Fields"])) {
+            for (const fRef of acro["/Fields"]) {
+              collectFormFields(fRef, "");
+            }
+          }
+        }
+        // Also catch orphan /FT widget fields
+        for (const obj of objects.values()) {
+          if (obj.dict && obj.dict["/FT"] && !seenFieldObjs.has(obj.objNum)) {
+            collectFormFields({ __ref: true, objNum: obj.objNum, gen: obj.gen }, "");
+          }
+        }
+
+        // 10. Page Count & Fonts List
+        let pageLeafCount = 0;
+        const fontSet = new Set();
+
+        for (const obj of objects.values()) {
+          if (!obj.dict) continue;
+          if (obj.dict["/Type"] === "/Page") {
+            pageLeafCount++;
+          }
+          if (obj.dict["/Type"] === "/Font" && typeof obj.dict["/BaseFont"] === "string") {
+            const cleanFont = obj.dict["/BaseFont"]
+              .slice(1)
+              .replace(/^[A-Z]{6}\+/, ""); // Strip subset prefix like ABCDEF+
+            if (cleanFont) fontSet.add(cleanFont);
+          }
+        }
+
+        if (pageLeafCount === 0 && catalogDict && catalogDict["/Pages"]) {
+          const pagesRoot = resolve(catalogDict["/Pages"]);
+          if (isDict(pagesRoot) && typeof pagesRoot["/Count"] === "number") {
+            pageLeafCount = pagesRoot["/Count"];
+          }
+        }
+
+        report.pageCount = pageLeafCount;
+        report.fonts = Array.from(fontSet).sort();
+
+        onProgress(100, "Forensic audit complete");
+        return report;
+      }
+
+      function parseXmpXml(xmlStr, xmpOut) {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xmlStr, "application/xml");
+          if (doc.querySelector("parsererror")) {
+            // Fallback regex extraction if XML has minor syntax quirks
+            extractXmpRegexFallback(xmlStr, xmpOut);
+            return;
+          }
+
+          const allEls = doc.getElementsByTagName("*");
+          const targetTags = new Map([
+            ["dc:creator", "Creator (dc:creator)"],
+            ["dc:title", "Title (dc:title)"],
+            ["dc:description", "Description (dc:description)"],
+            ["xmp:creatortool", "Creator Tool (xmp:CreatorTool)"],
+            ["xmp:createdate", "Create Date (xmp:CreateDate)"],
+            ["xmp:modifydate", "Modify Date (xmp:ModifyDate)"],
+            ["xmp:metadatadate", "Metadata Date (xmp:MetadataDate)"],
+            ["pdf:producer", "PDF Producer (pdf:Producer)"],
+            ["pdf:keywords", "Keywords (pdf:Keywords)"],
+            ["xmpmm:documentid", "Document ID (xmpMM:DocumentID)"],
+            ["xmpmm:instanceid", "Instance ID (xmpMM:InstanceID)"],
+            ["xmpmm:originaldocumentid", "Original Document ID (xmpMM:OriginalDocumentID)"]
+          ]);
+
+          for (let i = 0; i < allEls.length; i++) {
+            const el = allEls[i];
+            const tagLower = el.tagName.toLowerCase();
+
+            // Check attributes too (XMP often stores properties as XML attributes on rdf:Description)
+            for (let a = 0; a < el.attributes.length; a++) {
+              const attr = el.attributes[a];
+              const attrLower = attr.name.toLowerCase();
+              if (targetTags.has(attrLower) && attr.value.trim()) {
+                xmpOut.fields[targetTags.get(attrLower)] = attr.value.trim();
+              }
+            }
+
+            if (targetTags.has(tagLower)) {
+              const liNodes = el.getElementsByTagName("rdf:li");
+              let val = "";
+              if (liNodes.length > 0) {
+                val = Array.from(liNodes)
+                  .map((n) => n.textContent.trim())
+                  .filter(Boolean)
+                  .join("; ");
+              } else {
+                val = el.textContent.trim();
+              }
+              if (val) {
+                xmpOut.fields[targetTags.get(tagLower)] = val;
+              }
+            }
+
+            // Parse xmpMM:History items
+            if (tagLower === "xmpmm:history") {
+              const items = el.getElementsByTagName("rdf:li");
+              for (let h = 0; h < items.length; h++) {
+                const item = items[h];
+                const action =
+                  item.getAttribute("stEvt:action") ||
+                  item.getElementsByTagName("stEvt:action")[0]?.textContent ||
+                  "modified";
+                const when =
+                  item.getAttribute("stEvt:when") ||
+                  item.getElementsByTagName("stEvt:when")[0]?.textContent ||
+                  "";
+                const agent =
+                  item.getAttribute("stEvt:softwareAgent") ||
+                  item.getElementsByTagName("stEvt:softwareAgent")[0]?.textContent ||
+                  "";
+                const changed =
+                  item.getAttribute("stEvt:changed") ||
+                  item.getElementsByTagName("stEvt:changed")[0]?.textContent ||
+                  "";
+                xmpOut.history.push({
+                  action: action.trim(),
+                  when: when.trim(),
+                  agent: agent.trim(),
+                  changed: changed.trim()
+                });
+              }
+            }
+          }
+        } catch {
+          extractXmpRegexFallback(xmlStr, xmpOut);
+        }
+      }
+
+      function extractXmpRegexFallback(xmlStr, xmpOut) {
+        const patterns = [
+          [/<xmp:CreatorTool>([^<]+)<\/xmp:CreatorTool>/i, "Creator Tool (xmp:CreatorTool)"],
+          [/<pdf:Producer>([^<]+)<\/pdf:Producer>/i, "PDF Producer (pdf:Producer)"],
+          [/<xmpMM:DocumentID>([^<]+)<\/xmpMM:DocumentID>/i, "Document ID (xmpMM:DocumentID)"],
+          [/<xmpMM:InstanceID>([^<]+)<\/xmpMM:InstanceID>/i, "Instance ID (xmpMM:InstanceID)"]
+        ];
+        for (const [rx, label] of patterns) {
+          const m = xmlStr.match(rx);
+          if (m && m[1]) xmpOut.fields[label] = m[1].trim();
+        }
+      }
+
+      /* =========================================================================
+       * 5. Risk Scoring & Remediation Engine
+       * ========================================================================= */
+      function computeRiskAssessment(rep) {
+        let score = 0;
+        const reasons = [];
+        const fixes = [];
+
+        if (rep.redactions.length > 0) {
+          score += 50;
+          reasons.push(`${rep.redactions.length} unapplied /Redact annotation(s) found — redacted content may still be recoverable`);
+          fixes.push("Open the PDF in your editor and run 'Apply Redactions' before saving so underlying text is permanently deleted.");
+        }
+
+        if (rep.revisions.length > 1) {
+          score += 30;
+          reasons.push(`${rep.revisions.length} incremental revisions detected — earlier document states are appended inside the file`);
+          fixes.push("Use 'Save As' or 'Print to PDF' / 'Sanitize Document' to flatten incremental revision history into a single clean revision.");
+        }
+
+        const jsActions = rep.actions.filter((a) => a.type === "JavaScript" || a.type === "Launch" || a.type === "SubmitForm");
+        if (jsActions.length > 0) {
+          score += 35;
+          reasons.push(`${jsActions.length} active JavaScript / Launch / SubmitForm trigger(s) embedded`);
+          fixes.push("Strip interactive scripts and auto-actions using your PDF editor's Sanitize or Optimize PDF feature.");
+        } else if (rep.actions.length > 0) {
+          score += 10;
+          reasons.push(`${rep.actions.length} document action trigger(s) present`);
+        }
+
+        if (rep.attachments.length > 0) {
+          score += 25;
+          reasons.push(`${rep.attachments.length} embedded file attachment(s) hidden inside the PDF container`);
+          fixes.push("Inspect and remove embedded attachments in the Attachments panel before distributing externally.");
+        }
+
+        if (rep.annotations.length > 0) {
+          score += 15;
+          reasons.push(`${rep.annotations.length} annotation(s) (comments, markups, or links) still attached`);
+          fixes.push("Flatten or delete all review comments and markup annotations before sending.");
+        }
+
+        const populatedForms = rep.forms.filter((f) => f.value && f.value.trim() !== "");
+        if (populatedForms.length > 0) {
+          score += 15;
+          reasons.push(`${populatedForms.length} populated AcroForm field(s) contain stored values`);
+          fixes.push("Flatten interactive form fields so hidden or editable form values cannot be altered or extracted.");
+        } else if (rep.forms.length > 0) {
+          score += 5;
+          reasons.push(`${rep.forms.length} interactive AcroForm field(s) present`);
+        }
+
+        const infoKeys = Object.keys(rep.docInfo);
+        const xmpKeys = Object.keys(rep.xmp.fields);
+        if (infoKeys.length > 0 || xmpKeys.length > 0 || rep.xmp.history.length > 0) {
+          score += 10;
+          reasons.push(`Document metadata (${infoKeys.length} Info fields, ${xmpKeys.length} XMP properties) exposes author/software details`);
+          fixes.push("Remove Document Properties and XMP metadata ('Remove Hidden Information' / 'Sanitize Document') before publishing.");
+        }
+
+        if (rep.encrypted) {
+          reasons.push("PDF is encrypted (/Encrypt present); internal encrypted streams could not be inspected");
+          fixes.push("Decrypt a working copy locally and re-scan with LeakyPDF to verify what is inside before re-encrypting for delivery.");
+        }
+
+        score = Math.min(100, score);
+
+        let level = "LOW";
+        let headline = "Low privacy leak risk detected";
+        if (score >= 45 || rep.redactions.length > 0 || jsActions.length > 0) {
+          level = "HIGH";
+          headline = "High risk: sensitive hidden data detected in this PDF";
+        } else if (score >= 15) {
+          level = "MEDIUM";
+          headline = "Moderate risk: metadata, comments, or history present";
+        }
+
+        if (fixes.length === 0) {
+          fixes.push("No high-risk hidden artifacts were found. If sharing highly sensitive records, printing to a fresh PDF provides an extra layer of flattening.");
+        }
+
+        const summary =
+          reasons.length > 0
+            ? reasons.join(". ") + "."
+            : "No unapplied redactions, incremental revisions, attachments, comments, or scripts were detected in the readable PDF structure.";
+
+        return { score, level, headline, summary, fixes };
+      }
+
+      /* =========================================================================
+       * 6. Runtime Synthetic Sample PDF Generator
+       *    Builds a completely valid, multi-revision PDF in memory that triggers:
+       *    - DocInfo (UTF-16BE Author + PDFDocEncoding strings + PDF dates)
+       *    - XMP Metadata stream with stEvt:History
+       *    - Revision 1 (original draft text) + Revision 2 (incremental update)
+       *    - Text comment annotation with /T author & /Contents
+       *    - Unapplied /Redact annotation
+       *    - Embedded text attachment (/EmbeddedFiles)
+       *    - JavaScript /OpenAction
+       *    - AcroForm field with populated value
+       * ========================================================================= */
+      function buildSampleLeakyPdf() {
+        const chunks = [];
+        let cursor = 0;
+        const xref1 = new Map();
+        const xref2 = new Map();
+
+        function pushStr(s) {
+          const b = textEncoder.encode(s);
+          chunks.push(b);
+          cursor += b.length;
+        }
+
+        function pushBytes(b) {
+          chunks.push(b);
+          cursor += b.length;
+        }
+
+        function startObj(num, gen, xrefMap) {
+          xrefMap.set(num, cursor);
+          pushStr(`${num} ${gen} obj\n`);
+        }
+
+        function endObj() {
+          pushStr("\nendobj\n");
+        }
+
+        // Header + binary marker
+        pushStr("%PDF-1.7\n%\xE2\xE3\xCF\xD3\n");
+
+        // --- REVISION 1 (Initial Draft) ---
+        startObj(1, 0, xref1);
+        pushStr("<< /Type /Catalog /Pages 2 0 R /Metadata 7 0 R /Names << /EmbeddedFiles 8 0 R >> /AcroForm << /Fields [11 0 R] >> /OpenAction 12 0 R >>");
+        endObj();
+
+        startObj(2, 0, xref1);
+        pushStr("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+        endObj();
+
+        startObj(3, 0, xref1);
+        pushStr("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R /Annots [9 0 R 10 0 R] >>");
+        endObj();
+
+        startObj(4, 0, xref1);
+        pushStr("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+        endObj();
+
+        const rev1PageStream =
+          "BT /F1 14 Tf 50 720 Td (CONFIDENTIAL SETTLEMENT AGREEMENT - DRAFT v1) Tj " +
+          "0 -26 Td /F1 11 Tf (Original Payout Offer: $1,450,000 USD to Acme Corp.) Tj " +
+          "0 -22 Td (Internal Note: Do not disclose to opposing counsel before Friday.) Tj ET";
+        startObj(5, 0, xref1);
+        pushStr(`<< /Length ${rev1PageStream.length} >>\nstream\n${rev1PageStream}\nendstream`);
+        endObj();
+
+        // Object 6: Document Info with UTF-16BE hex string for Author (<FEFF...>)
+        // "Elena Vance (Senior Partner)" in UTF-16BE hex
+        const authorUtf16Hex =
+          "FEFF0045006C0065006E0061002000560061006E006300650020002800530065006E0069006F007200200050006100720074006E006500720029";
+        startObj(6, 0, xref1);
+        pushStr(
+          `<< /Title (Project Horizon - Settlement Terms) ` +
+          `/Author <${authorUtf16Hex}> ` +
+          `/Subject (Confidential M&A Negotiation) ` +
+          `/Keywords (settlement, confidential, draft-v1) ` +
+          `/Creator (Microsoft Word 365 - MAC-WORKSTATION-04) ` +
+          `/Producer (Acrobat Distiller 24.0 for macOS) ` +
+          `/CreationDate (D:20261110091422-05'00') ` +
+          `/ModDate (D:20261112164209-05'00') >>`
+        );
+        endObj();
+
+        // Object 7: XMP Metadata Stream with edit history
+        const xmpXml = `<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description rdf:about=""
+      xmlns:dc="http://purl.org/dc/elements/1.1/"
+      xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+      xmlns:pdf="http://ns.adobe.com/pdf/1.3/"
+      xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"
+      xmlns:stEvt="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#">
+      <dc:creator><rdf:Seq><rdf:li>Elena Vance (Senior Partner)</rdf:li></rdf:Seq></dc:creator>
+      <xmp:CreatorTool>Adobe Acrobat Pro 2026.001</xmp:CreatorTool>
+      <pdf:Producer>Adobe PDF Library 24.1.12</pdf:Producer>
+      <xmpMM:DocumentID>uuid:8f4e2a10-91b3-4c7d-b811-0092a1f4c901</xmpMM:DocumentID>
+      <xmpMM:InstanceID>uuid:3c9d7e44-2201-4a8e-9f12-77b810e2d455</xmpMM:InstanceID>
+      <xmpMM:History>
+        <rdf:Seq>
+          <rdf:li stEvt:action="created" stEvt:when="2026-11-10T09:14:22-05:00" stEvt:softwareAgent="Microsoft Word 365"/>
+          <rdf:li stEvt:action="saved" stEvt:when="2026-11-12T16:42:09-05:00" stEvt:softwareAgent="Adobe Acrobat Pro 2026.001" stEvt:changed="/metadata;/content"/>
+        </rdf:Seq>
+      </xmpMM:History>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>`;
+        const xmpBytes = textEncoder.encode(xmpXml);
+        startObj(7, 0, xref1);
+        pushStr(`<< /Type /Metadata /Subtype /XML /Length ${xmpBytes.length} >>\nstream\n`);
+        pushBytes(xmpBytes);
+        pushStr("\nendstream");
+        endObj();
+
+        // Object 8 & 13: Embedded text file attachment
+        const secretCsv = "EmployeeID,FullName,SeveranceBonusUSD,InternalRating\nEMP-104,Marcus Sterling,185000,Exceeds\nEMP-209,Priya Nair,210000,Top-1%\n";
+        startObj(8, 0, xref1);
+        pushStr("<< /Names [(internal_compensation_notes.csv) 13 0 R] >>");
+        endObj();
+
+        startObj(13, 0, xref1);
+        pushStr("<< /Type /Filespec /F (internal_compensation_notes.csv) /UF (internal_compensation_notes.csv) /Desc (Internal HR calculation sheet accidentally attached) /EF << /F 14 0 R >> >>");
+        endObj();
+
+        startObj(14, 0, xref1);
+        pushStr(`<< /Type /EmbeddedFile /Subtype /text#2Fcsv /Length ${secretCsv.length} >>\nstream\n${secretCsv}\nendstream`);
+        endObj();
+
+        // Object 9: Sticky Note Comment Annotation
+        startObj(9, 0, xref1);
+        pushStr("<< /Type /Annot /Subtype /Text /Rect [450 700 474 724] /T (David Ross - Outside Counsel) /Subj (Comment) /Contents (Make sure we scrub the $1.45M figure before sending this to the regulator!) /M (D:20261112164000-05'00') >>");
+        endObj();
+
+        // Object 10: Unapplied /Redact Annotation
+        startObj(10, 0, xref1);
+        pushStr("<< /Type /Annot /Subtype /Redact /Rect [48 665 440 684] /T (Elena Vance) /Subj (Redaction) /OverlayText (REDACTED) /Contents (Confidential settlement floor amount) >>");
+        endObj();
+
+        // Object 11: AcroForm Text Field with value
+        startObj(11, 0, xref1);
+        pushStr("<< /Type /Annot /Subtype /Widget /FT /Tx /T (SignerSSN_or_TaxID) /V (TAX-ID-994-82-1104) /Rect [50 610 260 632] >>");
+        endObj();
+
+        // Object 12: JavaScript OpenAction
+        startObj(12, 0, xref1);
+        pushStr("<< /Type /Action /S /JavaScript /JS (app.alert('Document opened - tracking beacon initialized.');) >>");
+        endObj();
+
+        // Write XRef Table #1 + Trailer #1 + %%EOF #1
+        const startXref1 = cursor;
+        pushStr("xref\n0 15\n");
+        pushStr("0000000000 65535 f \n");
+        for (let id = 1; id <= 14; id++) {
+          const off = String(xref1.get(id)).padStart(10, "0");
+          pushStr(`${off} 00000 n \n`);
+        }
+        pushStr(`trailer\n<< /Size 15 /Root 1 0 R /Info 6 0 R >>\nstartxref\n${startXref1}\n%%EOF\n`);
+
+        // --- REVISION 2 (Incremental Update modifying Object 5 content stream) ---
+        const rev2PageStream =
+          "BT /F1 14 Tf 50 720 Td (SETTLEMENT AGREEMENT - FINAL EXTERNAL COPY) Tj " +
+          "0 -26 Td /F1 11 Tf (Agreed Payout Amount: [REDACTED]) Tj ET";
+        startObj(5, 0, xref2);
+        pushStr(`<< /Length ${rev2PageStream.length} >>\nstream\n${rev2PageStream}\nendstream`);
+        endObj();
+
+        const startXref2 = cursor;
+        pushStr("xref\n0 1\n0000000000 65535 f \n5 1\n");
+        pushStr(`${String(xref2.get(5)).padStart(10, "0")} 00000 n \n`);
+        pushStr(`trailer\n<< /Size 15 /Root 1 0 R /Info 6 0 R /Prev ${startXref1} >>\nstartxref\n${startXref2}\n%%EOF\n`);
+
+        const totalBytes = new Uint8Array(cursor);
+        let pos = 0;
+        for (const c of chunks) {
+          totalBytes.set(c, pos);
+          pos += c.length;
+        }
+        return totalBytes;
+      }
+
+      /* =========================================================================
+       * 7. Report Formatting & Export Builders
+       * ========================================================================= */
+      function buildMarkdownReport(rep, risk) {
+        const lines = [];
+        lines.push(`# LeakyPDF Forensic Audit Report`);
+        lines.push(`- **File:** \`${rep.fileName}\``);
+        lines.push(`- **Size:** ${formatBytes(rep.fileSize)} (${rep.fileSize} bytes)`);
+        lines.push(`- **PDF Version:** ${rep.pdfVersion} | **Pages:** ${rep.pageCount} | **Indirect Objects:** ${rep.objectCount}`);
+        lines.push(`- **Risk Score:** ${risk.score}/100 (${risk.level} RISK)`);
+        lines.push(`- **Summary:** ${risk.summary}`);
+        lines.push("");
+
+        lines.push("## Recommended Remediation");
+        for (const f of risk.fixes) lines.push(`- ${f}`);
+        lines.push("");
+
+        lines.push("## 1. Unapplied Redaction Annotations");
+        if (rep.redactions.length === 0) {
+          lines.push("None detected.");
+        } else {
+          for (const r of rep.redactions) {
+            lines.push(`- **HIGH RISK** (Object #${r.objNum}): Author=\`${r.author || "Unknown"}\`, Overlay=\`${r.overlayText || "-"}\`, Contents=\`${r.contents || "-"}\``);
+          }
+        }
+        lines.push("");
+
+        lines.push("## 2. Incremental Revisions");
+        lines.push(`- **%%EOF Markers Found:** ${rep.revisions.length} | **xref Tables:** ${rep.xrefCount}`);
+        for (const rev of rep.revisions) {
+          lines.push(`  - Revision ${rev.index}: bytes 0..${rev.endByte} (${formatBytes(rev.endByte)})`);
+        }
+        lines.push("");
+
+        lines.push("## 3. Document Info Dictionary");
+        const infoEntries = Object.entries(rep.docInfo);
+        if (infoEntries.length === 0) {
+          lines.push("No /Info dictionary fields present.");
+        } else {
+          for (const [k, v] of infoEntries) lines.push(`- **${k}:** ${v}`);
+        }
+        lines.push("");
+
+        lines.push("## 4. XMP Metadata");
+        if (!rep.xmp.present) {
+          lines.push("No XMP metadata stream found.");
+        } else {
+          for (const [k, v] of Object.entries(rep.xmp.fields)) lines.push(`- **${k}:** ${v}`);
+          if (rep.xmp.history.length > 0) {
+            lines.push("- **Edit History:**");
+            for (const h of rep.xmp.history) {
+              lines.push(`  - \`${h.action}\` at \`${h.when || "unknown time"}\` via \`${h.agent || "unknown software"}\``);
+            }
+          }
+        }
+        lines.push("");
+
+        lines.push("## 5. Comments, Markups & Links");
+        if (rep.annotations.length === 0) {
+          lines.push("None detected.");
+        } else {
+          for (const a of rep.annotations) {
+            lines.push(`- **[${a.subtype}]** (Obj #${a.objNum}) Author=\`${a.author || "-"}\` | Contents=\`${a.contents || a.uri || "-"}\``);
+          }
+        }
+        lines.push("");
+
+        lines.push("## 6. Embedded Attachments");
+        if (rep.attachments.length === 0) {
+          lines.push("None detected.");
+        } else {
+          for (const att of rep.attachments) {
+            lines.push(`- **${att.name}** (${formatBytes(att.size)}, ${att.mimeType}) — ${att.description || att.source}`);
+          }
+        }
+        lines.push("");
+
+        lines.push("## 7. JavaScript & Auto Actions");
+        if (rep.actions.length === 0) {
+          lines.push("None detected.");
+        } else {
+          for (const act of rep.actions) {
+            lines.push(`- **${act.type}** at \`${act.location}\`: ${act.detail}${act.snippet ? ` (\`${act.snippet.replace(/\s+/g, " ")}\`)` : ""}`);
+          }
+        }
+        lines.push("");
+
+        lines.push("## 8. AcroForm Fields");
+        if (rep.forms.length === 0) {
+          lines.push("None detected.");
+        } else {
+          for (const fld of rep.forms) {
+            lines.push(`- **${fld.name}** (${fld.type}): \`${fld.value || "(empty)"}\``);
+          }
+        }
+        lines.push("");
+
+        lines.push("## 9. Technical Fingerprint");
+        lines.push(`- **Encrypted:** ${rep.encrypted ? "Yes (/Encrypt dictionary present)" : "No"}`);
+        lines.push(`- **Linearized:** ${rep.linearized ? "Yes" : "No"}`);
+        lines.push(`- **Fonts (${rep.fonts.length}):** ${rep.fonts.length > 0 ? rep.fonts.join(", ") : "None listed"}`);
+        lines.push("");
+        lines.push("---");
+        lines.push("Report generated by LeakyPDF (shrijeetsingh.com)");
+
+        return lines.join("\n");
+      }
+
+      function buildJsonReport(rep, risk) {
+        const cleanAttachments = rep.attachments.map(({ name, description, source, mimeType, size }) => ({
+          name,
+          description,
+          source,
+          mimeType,
+          size
+        }));
+        return JSON.stringify(
+          {
+            generator: "Report generated by LeakyPDF (shrijeetsingh.com)",
+            auditedAt: new Date().toISOString(),
+            file: {
+              name: rep.fileName,
+              sizeBytes: rep.fileSize,
+              pdfVersion: rep.pdfVersion,
+              pageCount: rep.pageCount,
+              objectCount: rep.objectCount,
+              linearized: rep.linearized,
+              encrypted: rep.encrypted,
+              encryptInfo: rep.encryptInfo
+            },
+            riskAssessment: risk,
+            revisions: rep.revisions,
+            xrefCount: rep.xrefCount,
+            documentInfo: rep.docInfo,
+            xmpMetadata: {
+              present: rep.xmp.present,
+              fields: rep.xmp.fields,
+              history: rep.xmp.history
+            },
+            unappliedRedactions: rep.redactions,
+            annotations: rep.annotations,
+            embeddedAttachments: cleanAttachments,
+            actionsAndJavaScript: rep.actions,
+            acroFormFields: rep.forms,
+            fonts: rep.fonts,
+            warnings: rep.warnings
+          },
+          null,
+          2
+        );
+      }
+
+      /* =========================================================================
+       * 8. DOM Wiring & Rendering
+       * ========================================================================= */
+      const dropzone = document.getElementById("dropzone");
+      const fileInput = document.getElementById("file-input");
+      const chooseBtn = document.getElementById("choose-btn");
+      const sampleBtn = document.getElementById("sample-btn");
+      const progressWrap = document.getElementById("progress-wrap");
+      const progressStage = document.getElementById("progress-stage");
+      const progressPct = document.getElementById("progress-pct");
+      const progressBar = document.getElementById("progress-bar");
+      const errorBanner = document.getElementById("error-banner");
+      const reportSection = document.getElementById("report-section");
+
+      let currentBytes = null;
+      let currentReport = null;
+      let currentRisk = null;
+
+      function setProgress(pct, label) {
+        progressWrap.classList.add("active");
+        progressStage.textContent = label;
+        progressPct.textContent = `${pct}%`;
+        progressBar.style.width = `${pct}%`;
+      }
+
+      function hideProgress() {
+        progressWrap.classList.remove("active");
+      }
+
+      function showError(msg) {
+        errorBanner.textContent = msg;
+        errorBanner.classList.add("active");
+      }
+
+      function clearError() {
+        errorBanner.textContent = "";
+        errorBanner.classList.remove("active");
+      }
+
+      function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+
+      function renderReport(rep, risk) {
+        currentReport = rep;
+        currentRisk = risk;
+
+        document.getElementById("rep-filename").textContent = rep.fileName;
+        document.getElementById("rep-filestats").textContent =
+          `${formatBytes(rep.fileSize)} · PDF ${rep.pdfVersion} · ${rep.pageCount} page(s) · ${rep.objectCount} objects`;
+
+        // Risk panel
+        const scoreRing = document.getElementById("score-ring");
+        const scoreNum = document.getElementById("score-num");
+        const scoreTier = document.getElementById("score-tier");
+        const riskHeadline = document.getElementById("risk-headline");
+        const riskBadge = document.getElementById("risk-badge");
+        const riskSummary = document.getElementById("risk-summary");
+        const remList = document.getElementById("remediation-list");
+
+        scoreRing.className = "score-ring " + risk.level.toLowerCase();
+        scoreNum.textContent = String(risk.score);
+        scoreTier.textContent = `${risk.level} RISK`;
+        riskHeadline.textContent = risk.headline;
+        riskSummary.textContent = risk.summary;
+
+        if (risk.level === "HIGH") {
+          riskBadge.className = "badge badge-high";
+          riskBadge.textContent = "HIGH RISK";
+        } else if (risk.level === "MEDIUM") {
+          riskBadge.className = "badge badge-warn";
+          riskBadge.textContent = "REVIEW ADVISED";
+        } else {
+          riskBadge.className = "badge badge-ok";
+          riskBadge.textContent = "LOW RISK";
+        }
+
+        remList.innerHTML = risk.fixes.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+
+        // Card 4: Unapplied Redactions
+        const cardRed = document.getElementById("card-redactions");
+        const badgeRed = document.getElementById("badge-redactions");
+        const bodyRed = document.getElementById("body-redactions");
+        if (rep.redactions.length > 0) {
+          cardRed.className = "finding-card sev-high";
+          badgeRed.className = "badge badge-high";
+          badgeRed.textContent = `${rep.redactions.length} UNAPPLIED`;
+          bodyRed.innerHTML = `
+            <div class="item-list">
+              ${rep.redactions
+                .map(
+                  (r) => `
+                <div class="sub-item-col">
+                  <div><span class="badge badge-high">HIGH RISK: REDACTION MARKED BUT NOT APPLIED</span> <span class="mono">Obj #${r.objNum}</span></div>
+                  <div class="mono">Author: ${escapeHtml(r.author || "Not specified")} · Overlay: ${escapeHtml(r.overlayText || "None")}</div>
+                  ${r.contents ? `<div class="mono">Note: ${escapeHtml(r.contents)}</div>` : ""}
+                </div>`
+                )
+                .join("")}
+            </div>`;
+        } else {
+          cardRed.className = "finding-card";
+          badgeRed.className = "badge badge-ok";
+          badgeRed.textContent = "NONE";
+          bodyRed.innerHTML = `<div class="empty-state">No unapplied <code>/Redact</code> annotations detected.</div>`;
+        }
+
+        // Card 2: Incremental Updates & Revisions
+        const cardRev = document.getElementById("card-revisions");
+        const badgeRev = document.getElementById("badge-revisions");
+        const bodyRev = document.getElementById("body-revisions");
+        const revCount = rep.revisions.length;
+        if (revCount > 1) {
+          cardRev.className = "finding-card sev-warn";
+          badgeRev.className = "badge badge-warn";
+          badgeRev.textContent = `${revCount} REVISIONS`;
+        } else {
+          cardRev.className = "finding-card";
+          badgeRev.className = "badge badge-ok";
+          badgeRev.textContent = "1 REVISION";
+        }
+
+        const baseName = rep.fileName.replace(/\.pdf$/i, "");
+        bodyRev.innerHTML = `
+          <div class="stat-chips">
+            <div class="stat-chip"><span>%%EOF markers:</span><strong>${revCount}</strong></div>
+            <div class="stat-chip"><span>xref sections:</span><strong>${rep.xrefCount}</strong></div>
+          </div>
+          ${
+            revCount > 1
+              ? `<p class="card-explain" style="color:var(--warn);">Warning: Multiple %%EOF markers indicate incremental saves. Earlier versions of this document may still be recoverable by truncating the file at each revision boundary below.</p>`
+              : ""
+          }
+          <div class="rev-list">
+            ${rep.revisions
+              .map(
+                (rev, idx) => `
+              <div class="rev-item">
+                <div>
+                  <strong>Revision ${rev.index}${idx === rev.length - 1 ? " (Current)" : " (Earlier Snapshot)"}</strong>
+                  <div class="mono">Bytes 0 – ${rev.endByte.toLocaleString()} (${formatBytes(rev.endByte)})</div>
+                </div>
+                <button type="button" class="btn btn-sm" data-rev-idx="${idx}">
+                  Download Rev ${rev.index} PDF
+                </button>
+              </div>`
+              )
+              .join("")}
+          </div>`;
+
+        bodyRev.querySelectorAll("button[data-rev-idx]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const idx = Number(btn.getAttribute("data-rev-idx"));
+            const rev = rep.revisions[idx];
+            if (!rev || !currentBytes) return;
+            const slice = currentBytes.subarray(0, rev.endByte);
+            triggerDownload(new Blob([slice], { type: "application/pdf" }), `${baseName}_rev${rev.index}.pdf`);
+          });
+        });
+
+        // Card 1A: Document Info Dictionary
+        const badgeInfo = document.getElementById("badge-docinfo");
+        const bodyInfo = document.getElementById("body-docinfo");
+        const infoPairs = Object.entries(rep.docInfo);
+        badgeInfo.textContent = `${infoPairs.length} FIELDS`;
+        badgeInfo.className = infoPairs.length > 0 ? "badge badge-warn" : "badge badge-ok";
+        if (infoPairs.length === 0) {
+          bodyInfo.innerHTML = `<div class="empty-state">No classic <code>/Info</code> dictionary metadata found.</div>`;
+        } else {
+          bodyInfo.innerHTML = `
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Field</th><th>Decoded Value</th></tr></thead>
+                <tbody>
+                  ${infoPairs
+                    .map(([k, v]) => `<tr><td class="mono">${escapeHtml(k)}</td><td class="mono">${escapeHtml(v)}</td></tr>`)
+                    .join("")}
+                </tbody>
+              </table>
+            </div>`;
+        }
+
+        // Card 1B: XMP Metadata
+        const badgeXmp = document.getElementById("badge-xmp");
+        const bodyXmp = document.getElementById("body-xmp");
+        const xmpFields = Object.entries(rep.xmp.fields);
+        if (!rep.xmp.present) {
+          badgeXmp.className = "badge badge-ok";
+          badgeXmp.textContent = "NONE";
+          bodyXmp.innerHTML = `<div class="empty-state">No embedded XMP XML metadata packet found.</div>`;
+        } else {
+          badgeXmp.className = xmpFields.length > 0 || rep.xmp.history.length > 0 ? "badge badge-warn" : "badge badge-info";
+          badgeXmp.textContent = `${xmpFields.length} TAGS`;
+          let html = "";
+          if (xmpFields.length > 0) {
+            html += `
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>XMP Property</th><th>Value</th></tr></thead>
+                  <tbody>
+                    ${xmpFields
+                      .map(([k, v]) => `<tr><td class="mono">${escapeHtml(k)}</td><td class="mono">${escapeHtml(v)}</td></tr>`)
+                      .join("")}
+                  </tbody>
+                </table>
+              </div>`;
+          }
+          if (rep.xmp.history.length > 0) {
+            html += `
+              <div class="item-list">
+                <strong style="font-size:0.85rem;">XMP Media Management Edit History (${rep.xmp.history.length} events)</strong>
+                ${rep.xmp.history
+                  .map(
+                    (h) => `
+                  <div class="sub-item-col">
+                    <div class="mono"><strong>${escapeHtml(h.action)}</strong> · ${escapeHtml(h.when || "Unknown date")}</div>
+                    <div class="mono">Software: ${escapeHtml(h.agent || "Unknown")}${h.changed ? ` · Changed: ${escapeHtml(h.changed)}` : ""}</div>
+                  </div>`
+                  )
+                  .join("")}
+              </div>`;
+          }
+          if (!html) {
+            html = `<div class="empty-state">XMP metadata stream is present, though no standard creator or history fields were populated.</div>`;
+          }
+          bodyXmp.innerHTML = html;
+        }
+
+        // Card 3: Annotations
+        const cardAnnots = document.getElementById("card-annots");
+        const badgeAnnots = document.getElementById("badge-annots");
+        const bodyAnnots = document.getElementById("body-annots");
+        if (rep.annotations.length > 0) {
+          cardAnnots.className = "finding-card sev-warn";
+          badgeAnnots.className = "badge badge-warn";
+          badgeAnnots.textContent = `${rep.annotations.length} FOUND`;
+          bodyAnnots.innerHTML = `
+            <div class="item-list">
+              ${rep.annotations
+                .map(
+                  (a) => `
+                <div class="sub-item-col">
+                  <div>
+                    <span class="badge badge-info">${escapeHtml(a.subtype)}</span>
+                    <span class="mono">Obj #${a.objNum}${a.author ? ` · Author: ${escapeHtml(a.author)}` : ""}</span>
+                  </div>
+                  ${a.contents ? `<div class="mono">Contents: ${escapeHtml(a.contents)}</div>` : ""}
+                  ${a.uri ? `<div class="mono">URI: ${escapeHtml(a.uri)}</div>` : ""}
+                  ${a.modDate ? `<div class="mono">Modified: ${escapeHtml(a.modDate)}</div>` : ""}
+                </div>`
+                )
+                .join("")}
+            </div>`;
+        } else {
+          cardAnnots.className = "finding-card";
+          badgeAnnots.className = "badge badge-ok";
+          badgeAnnots.textContent = "0 FOUND";
+          bodyAnnots.innerHTML = `<div class="empty-state">No comment, markup, popup, or link annotations found.</div>`;
+        }
+
+        // Card 5: Embedded Files / Attachments
+        const cardAtt = document.getElementById("card-attachments");
+        const badgeAtt = document.getElementById("badge-attachments");
+        const bodyAtt = document.getElementById("body-attachments");
+        if (rep.attachments.length > 0) {
+          cardAtt.className = "finding-card sev-high";
+          badgeAtt.className = "badge badge-high";
+          badgeAtt.textContent = `${rep.attachments.length} FILE(S)`;
+          bodyAtt.innerHTML = `
+            <div class="item-list">
+              ${rep.attachments
+                .map(
+                  (att, idx) => `
+                <div class="rev-item">
+                  <div>
+                    <strong class="mono">${escapeHtml(att.name)}</strong>
+                    <div class="mono">${formatBytes(att.size)} · ${escapeHtml(att.mimeType)} · ${escapeHtml(att.source)}</div>
+                    ${att.description ? `<div class="mono">${escapeHtml(att.description)}</div>` : ""}
+                  </div>
+                  ${
+                    att.bytes
+                      ? `<button type="button" class="btn btn-sm" data-att-idx="${idx}">Download File</button>`
+                      : `<span class="badge badge-warn">Encrypted / Raw</span>`
+                  }
+                </div>`
+                )
+                .join("")}
+            </div>`;
+
+          bodyAtt.querySelectorAll("button[data-att-idx]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const idx = Number(btn.getAttribute("data-att-idx"));
+              const att = rep.attachments[idx];
+              if (!att || !att.bytes) return;
+              triggerDownload(new Blob([att.bytes], { type: att.mimeType || "application/octet-stream" }), att.name);
+            });
+          });
+        } else {
+          cardAtt.className = "finding-card";
+          badgeAtt.className = "badge badge-ok";
+          badgeAtt.textContent = "0 FILES";
+          bodyAtt.innerHTML = `<div class="empty-state">No embedded file attachments detected.</div>`;
+        }
+
+        // Card 6: JavaScript & Auto Actions
+        const cardAct = document.getElementById("card-actions");
+        const badgeAct = document.getElementById("badge-actions");
+        const bodyAct = document.getElementById("body-actions");
+        if (rep.actions.length > 0) {
+          const hasHighAct = rep.actions.some((a) => ["JavaScript", "Launch", "SubmitForm"].includes(a.type));
+          cardAct.className = hasHighAct ? "finding-card sev-high" : "finding-card sev-warn";
+          badgeAct.className = hasHighAct ? "badge badge-high" : "badge badge-warn";
+          badgeAct.textContent = `${rep.actions.length} TRIGGER(S)`;
+          bodyAct.innerHTML = `
+            <div class="item-list">
+              ${rep.actions
+                .map(
+                  (act) => `
+                <div class="sub-item-col">
+                  <div>
+                    <span class="badge ${["JavaScript", "Launch", "SubmitForm"].includes(act.type) ? "badge-high" : "badge-warn"}">${escapeHtml(act.type)}</span>
+                    <span class="mono">${escapeHtml(act.location)}</span>
+                  </div>
+                  <div style="font-size:0.86rem;">${escapeHtml(act.detail)}</div>
+                  ${act.snippet ? `<pre class="code-snippet">${escapeHtml(act.snippet)}</pre>` : ""}
+                </div>`
+                )
+                .join("")}
+            </div>`;
+        } else {
+          cardAct.className = "finding-card";
+          badgeAct.className = "badge badge-ok";
+          badgeAct.textContent = "NONE";
+          bodyAct.innerHTML = `<div class="empty-state">No JavaScript, OpenAction, Launch, or SubmitForm actions found.</div>`;
+        }
+
+        // Card 7: AcroForm Fields
+        const cardForms = document.getElementById("card-forms");
+        const badgeForms = document.getElementById("badge-forms");
+        const bodyForms = document.getElementById("body-forms");
+        if (rep.forms.length > 0) {
+          const hasValues = rep.forms.some((f) => f.value);
+          cardForms.className = hasValues ? "finding-card sev-warn" : "finding-card";
+          badgeForms.className = hasValues ? "badge badge-warn" : "badge badge-info";
+          badgeForms.textContent = `${rep.forms.length} FIELD(S)`;
+          bodyForms.innerHTML = `
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Field Name</th><th>Type</th><th>Stored Value</th></tr></thead>
+                <tbody>
+                  ${rep.forms
+                    .map(
+                      (f) => `
+                    <tr>
+                      <td class="mono">${escapeHtml(f.name)}</td>
+                      <td class="mono">${escapeHtml(f.type)}</td>
+                      <td class="mono">${f.value ? escapeHtml(f.value) : `<span style="color:var(--muted)">(empty)</span>`}</td>
+                    </tr>`
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>`;
+        } else {
+          cardForms.className = "finding-card";
+          badgeForms.className = "badge badge-ok";
+          badgeForms.textContent = "0 FIELDS";
+          bodyForms.innerHTML = `<div class="empty-state">No interactive AcroForm fields found.</div>`;
+        }
+
+        // Card 8 & 9: Encryption & Technical Fingerprint
+        const badgeEncrypt = document.getElementById("badge-encrypt");
+        const bodyTech = document.getElementById("body-tech");
+        if (rep.encrypted) {
+          badgeEncrypt.className = "badge badge-warn";
+          badgeEncrypt.textContent = "ENCRYPTED (/Encrypt)";
+        } else {
+          badgeEncrypt.className = "badge badge-ok";
+          badgeEncrypt.textContent = "UNENCRYPTED";
+        }
+
+        const producerFp = rep.docInfo.Producer || rep.xmp.fields["PDF Producer (pdf:Producer)"] || "Not disclosed";
+        const creatorFp = rep.docInfo.Creator || rep.xmp.fields["Creator Tool (xmp:CreatorTool)"] || "Not disclosed";
+
+        bodyTech.innerHTML = `
+          ${
+            rep.encrypted
+              ? `<div class="alert-banner active" style="margin-top:0;margin-bottom:12px;">
+                  <strong>Encryption Detected:</strong> This PDF contains an <code>/Encrypt</code> dictionary${
+                    rep.encryptInfo
+                      ? ` (Filter: ${escapeHtml(rep.encryptInfo.filter)}, V=${escapeHtml(rep.encryptInfo.v)}, R=${escapeHtml(rep.encryptInfo.r)}, ${escapeHtml(rep.encryptInfo.length)}-bit)`
+                      : ""
+                  }. Encrypted object streams and metadata strings cannot be decoded without the document password.
+                </div>`
+              : ""
+          }
+          <div class="stat-chips" style="margin-bottom:12px;">
+            <div class="stat-chip"><span>PDF Version:</span><strong>${escapeHtml(rep.pdfVersion)}</strong></div>
+            <div class="stat-chip"><span>Pages:</span><strong>${rep.pageCount}</strong></div>
+            <div class="stat-chip"><span>Linearized (Fast Web View):</span><strong>${rep.linearized ? "Yes" : "No"}</strong></div>
+            <div class="stat-chip"><span>Indirect Objects:</span><strong>${rep.objectCount}</strong></div>
+            <div class="stat-chip"><span>Producer Fingerprint:</span><strong class="mono">${escapeHtml(producerFp)}</strong></div>
+            <div class="stat-chip"><span>Creator Tool:</span><strong class="mono">${escapeHtml(creatorFp)}</strong></div>
+          </div>
+          <div>
+            <strong style="font-size:0.85rem;">Referenced Fonts (${rep.fonts.length}):</strong>
+            <div class="mono" style="margin-top:4px;color:var(--muted);">
+              ${rep.fonts.length > 0 ? rep.fonts.map(escapeHtml).join(", ") : "No explicit /Type /Font dictionaries enumerated."}
+            </div>
+          </div>
+          ${
+            rep.warnings.length > 0
+              ? `<div style="margin-top:12px;font-size:0.83rem;color:var(--warn);">
+                  <strong>Parser Notes:</strong>
+                  <ul style="margin:4px 0 0;padding-left:18px;">
+                    ${rep.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}
+                  </ul>
+                </div>`
+              : ""
+          }`;
+
+        reportSection.classList.add("active");
+        reportSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      async function processPdfBuffer(arrayBuffer, fileName) {
+        clearError();
+        try {
+          const bytes = new Uint8Array(arrayBuffer);
+          if (bytes.length === 0) {
+            throw new Error("The selected file is empty (0 bytes).");
+          }
+          currentBytes = bytes;
+          const report = await analyzePdfBytes(bytes, fileName, setProgress);
+          const risk = computeRiskAssessment(report);
+          setTimeout(hideProgress, 350);
+          renderReport(report, risk);
+        } catch (err) {
+          hideProgress();
+          showError(`Unable to analyze PDF: ${err.message}`);
+        }
+      }
+
+      /* Event Listeners */
+      chooseBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        fileInput.click();
+      });
+
+      dropzone.addEventListener("click", (e) => {
+        if (e.target === sampleBtn || sampleBtn.contains(e.target)) return;
+        fileInput.click();
+      });
+
+      dropzone.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          fileInput.click();
+        }
+      });
+
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        const buf = await file.arrayBuffer();
+        await processPdfBuffer(buf, file.name);
+        fileInput.value = "";
+      });
+
+      dropzone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropzone.classList.add("dragover");
+      });
+
+      dropzone.addEventListener("dragleave", () => {
+        dropzone.classList.remove("dragover");
+      });
+
+      dropzone.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        dropzone.classList.remove("dragover");
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!file) return;
+        const buf = await file.arrayBuffer();
+        await processPdfBuffer(buf, file.name);
+      });
+
+      sampleBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const sampleBytes = buildSampleLeakyPdf();
+        await processPdfBuffer(sampleBytes.buffer, "sample_settlement_agreement.pdf");
+      });
+
+      document.getElementById("export-md-btn").addEventListener("click", () => {
+        if (!currentReport || !currentRisk) return;
+        const md = buildMarkdownReport(currentReport, currentRisk);
+        const base = currentReport.fileName.replace(/\.pdf$/i, "");
+        triggerDownload(new Blob([md], { type: "text/markdown;charset=utf-8" }), `${base}_leakypdf_report.md`);
+      });
+
+      document.getElementById("export-json-btn").addEventListener("click", () => {
+        if (!currentReport || !currentRisk) return;
+        const json = buildJsonReport(currentReport, currentRisk);
+        const base = currentReport.fileName.replace(/\.pdf$/i, "");
+        triggerDownload(new Blob([json], { type: "application/json;charset=utf-8" }), `${base}_leakypdf_report.json`);
+      });
+
+      document.getElementById("reset-btn").addEventListener("click", () => {
+        currentBytes = null;
+        currentReport = null;
+        currentRisk = null;
+        reportSection.classList.remove("active");
+        clearError();
+        hideProgress();
+        dropzone.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    })();
+  </script>
+</body>
+</html>
